@@ -21,6 +21,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
                             <div className="flex min-h-screen flex-col transition-colors duration-200">
                                 <main className="flex-grow">{children}</main>
+                                <footer className="p-4 text-center text-sm text-muted-foreground">
+                                    © 2024 Seeker. All rights reserved.
+                                </footer>
                             </div>
                             <Toaster />
                         </ThemeProvider>
