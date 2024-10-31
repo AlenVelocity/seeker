@@ -5,6 +5,7 @@ import { TRPCReactProvider } from '@/trpc/react'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme/provider'
 import { Header } from '@/components/Header'
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const metadata: Metadata = {
     title: 'VCTLE',
@@ -16,18 +17,20 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     return (
         <html lang="en" className={`${GeistSans.variable}`}>
             <body>
-                <TRPCReactProvider>
-                    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-                        <div className="flex min-h-screen flex-col transition-colors duration-200">
-                            <Header />
-                            <main className="flex-grow">{children}</main>
-                            <footer className="p-4 text-center text-sm text-muted-foreground">
+                <ClerkProvider>
+                    <TRPCReactProvider>
+                        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+                            <div className="flex min-h-screen flex-col transition-colors duration-200">
+                                <Header />
+                                <main className="flex-grow">{children}</main>
+                                <footer className="p-4 text-center text-sm text-muted-foreground">
                                     © 2024 Seeker. All rights reserved.
-                            </footer>
-                        </div>
-                        <Toaster />
-                    </ThemeProvider>
-                </TRPCReactProvider>
+                                </footer>
+                            </div>
+                            <Toaster />
+                        </ThemeProvider>
+                    </TRPCReactProvider>
+                </ClerkProvider>
             </body>
         </html>
     )
