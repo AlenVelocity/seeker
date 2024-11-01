@@ -1,15 +1,16 @@
 'use client'
 
-import { SignIn } from '@clerk/nextjs'
+import { SignUp } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
 import { useTheme } from 'next-themes'
+import Link from 'next/link'
 
 export default function Page() {
     const { theme } = useTheme()
 
     return (
         <div className="mx-auto w-full max-w-[400px]">
-            <SignIn
+            <SignUp
                 appearance={{
                     baseTheme: theme === 'dark' ? dark : undefined,
                     elements: {
@@ -29,8 +30,15 @@ export default function Page() {
                     }
                 }}
                 redirectUrl="/"
-                signUpUrl="/sign-up"
+                signInUrl="/sign-in"
             />
+
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <Link href="/sign-in" className="font-medium text-primary hover:underline">
+                    Sign in
+                </Link>
+            </p>
         </div>
     )
 }
