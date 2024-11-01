@@ -180,7 +180,7 @@ export default function BooksPage() {
                                 </ToggleGroupItem>
                             </ToggleGroup>
                         </div>
-                        <Button>
+                        <Button disabled>
                             <Plus className="mr-2 h-4 w-4" />
                             Add New Book
                         </Button>
