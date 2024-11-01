@@ -5,6 +5,7 @@ import { TRPCReactProvider } from '@/trpc/react'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme/provider'
 import { ClerkProvider } from '@clerk/nextjs'
+import { TooltipProvider } from '@radix-ui/react-tooltip'
 
 export const metadata: Metadata = {
     title: 'Seeker',
@@ -19,9 +20,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <ClerkProvider>
                     <TRPCReactProvider>
                         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-                            <div className="flex min-h-screen flex-col transition-colors duration-200">
-                                <main className="flex-grow">{children}</main>
-                            </div>
+                            <main className="flex-grow">{children}</main>
                             <Toaster />
                         </ThemeProvider>
                     </TRPCReactProvider>

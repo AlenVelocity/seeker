@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { MoreHorizontal, Plus, Search } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, DollarSign } from 'lucide-react'
+import { api } from '@/trpc/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -14,7 +15,6 @@ import {
     DialogTitle,
     DialogTrigger
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,33 +23,103 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-
-// Mock data based on the schema
-const members = [
-    { id: 1, name: 'John Doe', email: 'john@example.com', outstandingDebt: 0, createdAt: new Date('2023-01-15') },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', outstandingDebt: 5.5, createdAt: new Date('2023-02-20') },
-    { id: 3, name: 'Alice Johnson', email: 'alice@example.com', outstandingDebt: 0, createdAt: new Date('2023-03-10') },
-    { id: 4, name: 'Bob Wilson', email: 'bob@example.com', outstandingDebt: 2.75, createdAt: new Date('2023-04-05') },
-    { id: 5, name: 'Emma Brown', email: 'emma@example.com', outstandingDebt: 0, createdAt: new Date('2023-05-12') }
-]
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
+import { useDebounce } from '@/hooks/use-debounce'
 
 export default function MembersPage() {
-    const [isNewMemberOpen, setIsNewMemberOpen] = React.useState(false)
     const [searchTerm, setSearchTerm] = React.useState('')
+    const [currentPage, setCurrentPage] = React.useState(1)
+    const [isNewMemberOpen, setIsNewMemberOpen] = React.useState(false)
+    const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
+    const [selectedMember, setSelectedMember] = React.useState<number | null>(null)
+    const [paymentAmount, setPaymentAmount] = React.useState('')
+    const [formData, setFormData] = React.useState({
+        name: '',
+        email: '',
+        address: ''
+    })
 
-    const filteredMembers = members.filter(
-        (member) =>
-            member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.email.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const debouncedSearch = useDebounce(searchTerm, 500)
+    const utils = api.useUtils()
+
+    // Queries
+    const membersQuery = api.member.getAll.useQuery({
+        search: debouncedSearch,
+        page: currentPage
+    })
+
+    // Mutations
+    const createMutation = api.member.create.useMutation({
+        onSuccess: () => {
+            toast.success('Member created successfully')
+            setIsNewMemberOpen(false)
+            setFormData({ name: '', email: '', address: '' })
+            utils.member.getAll.invalidate()
+        },
+        onError: (error) => {
+            toast.error(error.message)
+        }
+    })
+
+    const deleteMutation = api.member.delete.useMutation({
+        onSuccess: () => {
+            toast.success('Member deleted successfully')
+            utils.member.getAll.invalidate()
+        },
+        onError: (error) => {
+            toast.error(error.message)
+        }
+    })
+
+    const payDebtMutation = api.member.payDebt.useMutation({
+        onSuccess: () => {
+            toast.success('Payment processed successfully')
+            setIsPaymentOpen(false)
+            setPaymentAmount('')
+            utils.member.getAll.invalidate()
+        },
+        onError: (error) => {
+            toast.error(error.message)
+        }
+    })
+
+    const handleCreate = () => {
+        if (!formData.name || !formData.email) {
+            toast.error('Please fill in all required fields')
+            return
+        }
+
+        createMutation.mutate(formData)
+    }
+
+    const handlePayment = () => {
+        if (!selectedMember || !paymentAmount) {
+            toast.error('Please enter a payment amount')
+            return
+        }
+
+        payDebtMutation.mutate({
+            id: selectedMember,
+            amount: parseFloat(paymentAmount)
+        })
+    }
 
     return (
         <div className="container mx-auto py-10">
-            <header className="mb-8 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">Members</h1>
-                    <p className="text-muted-foreground">Manage library members</p>
-                </div>
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold">Members</h1>
+                <p className="text-muted-foreground">Manage library members</p>
+            </header>
+
+            <div className="mb-4 flex items-center justify-between">
+                <Input
+                    placeholder="Search members..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
+                />
                 <Dialog open={isNewMemberOpen} onOpenChange={setIsNewMemberOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -59,44 +129,52 @@ export default function MembersPage() {
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Add New Member</DialogTitle>
-                            <DialogDescription>Enter the details for the new library member.</DialogDescription>
+                            <DialogTitle>Create New Member</DialogTitle>
+                            <DialogDescription>Enter the details for the new member.</DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Name
                                 </Label>
-                                <Input id="name" className="col-span-3" />
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="col-span-3"
+                                />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="email" className="text-right">
                                     Email
                                 </Label>
-                                <Input id="email" type="email" className="col-span-3" />
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="address" className="text-right">
+                                    Address
+                                </Label>
+                                <Input
+                                    id="address"
+                                    value={formData.address}
+                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    className="col-span-3"
+                                />
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit">Add Member</Button>
+                            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+                                {createMutation.isPending ? 'Creating...' : 'Create Member'}
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </header>
-
-            <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    <Input
-                        type="text"
-                        placeholder="Search members..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="max-w-sm"
-                    />
-                    <Button type="submit">
-                        <Search className="mr-2 h-4 w-4" />
-                        Search
-                    </Button>
-                </div>
             </div>
 
             <Table>
@@ -104,18 +182,28 @@ export default function MembersPage() {
                     <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Active Loans</TableHead>
                         <TableHead>Outstanding Debt</TableHead>
-                        <TableHead>Member Since</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredMembers.map((member) => (
+                    {membersQuery.data?.members.map((member) => (
                         <TableRow key={member.id}>
                             <TableCell className="font-medium">{member.name}</TableCell>
                             <TableCell>{member.email}</TableCell>
-                            <TableCell>${member.outstandingDebt.toFixed(2)}</TableCell>
-                            <TableCell>{member.createdAt.toLocaleDateString()}</TableCell>
+                            <TableCell>
+                                <Badge variant={member.transactions.length > 0 ? 'default' : 'secondary'}>
+                                    {member.transactions.length}
+                                </Badge>
+                            </TableCell>
+                            <TableCell>
+                                {member.outstandingDebt > 0 ? (
+                                    <Badge variant="destructive">${member.outstandingDebt.toFixed(2)}</Badge>
+                                ) : (
+                                    <Badge variant="secondary">$0.00</Badge>
+                                )}
+                            </TableCell>
                             <TableCell>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -126,11 +214,25 @@ export default function MembersPage() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem>View details</DropdownMenuItem>
-                                        <DropdownMenuItem>Edit member</DropdownMenuItem>
-                                        <DropdownMenuItem>View transaction history</DropdownMenuItem>
+                                        {member.outstandingDebt > 0 && (
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    setSelectedMember(member.id)
+                                                    setIsPaymentOpen(true)
+                                                }}
+                                            >
+                                                <DollarSign className="mr-2 h-4 w-4" />
+                                                Pay Debt
+                                            </DropdownMenuItem>
+                                        )}
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem>Delete member</DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onClick={() => deleteMutation.mutate(member.id)}
+                                            disabled={member.transactions.length > 0 || member.outstandingDebt > 0}
+                                        >
+                                            Delete member
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </TableCell>
@@ -138,6 +240,41 @@ export default function MembersPage() {
                     ))}
                 </TableBody>
             </Table>
+
+            <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Process Payment</DialogTitle>
+                        <DialogDescription>Enter the payment amount.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="amount" className="text-right">
+                                Amount
+                            </Label>
+                            <div className="col-span-3">
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                                    <Input
+                                        id="amount"
+                                        type="number"
+                                        value={paymentAmount}
+                                        onChange={(e) => setPaymentAmount(e.target.value)}
+                                        className="pl-7"
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handlePayment} disabled={payDebtMutation.isPending}>
+                            {payDebtMutation.isPending ? 'Processing...' : 'Process Payment'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
