@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Book, Search, Plus, MinusCircle, PlusCircle, Grid, List } from 'lucide-react'
+import { Book, Search, Plus, MinusCircle, PlusCircle, Grid, List, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,16 @@ import { api } from '@/trpc/react'
 import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
 import { IssueBookDialog } from '@/components/IssueBookDialog'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious
+} from '@/components/ui/pagination'
+import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Book = {
     id: number
@@ -189,17 +199,100 @@ export default function BooksPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {(books as unknown as Book[])?.map((book) => (
-                                    <TableRow key={book.id}>
-                                        <TableCell className="font-medium">{book.title}</TableCell>
-                                        <TableCell>{book.author}</TableCell>
-                                        <TableCell>{book.isbn}</TableCell>
-                                        <TableCell>{book.quantity}</TableCell>
-                                        <TableCell>{book.publisher}</TableCell>
-                                        <TableCell>{new Date(book.updatedAt).toLocaleDateString()}</TableCell>
-                                        <TableCell>
+                                {booksQuery.isLoading ? (
+                                    <TableRow>
+                                        <LoadingCell />
+                                    </TableRow>
+                                ) : booksQuery.data?.books.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center">
+                                            No books found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    booksQuery.data?.books.map((book) => (
+                                        <TableRow key={book.id}>
+                                            <TableCell className="font-medium">{book.title}</TableCell>
+                                            <TableCell>{book.author}</TableCell>
+                                            <TableCell>{book.isbn}</TableCell>
+                                            <TableCell>{book.quantity}</TableCell>
+                                            <TableCell>{book.publisher}</TableCell>
+                                            <TableCell>{new Date(book.updatedAt).toLocaleDateString()}</TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    size="sm"
+                                                    disabled={book.quantity < 1}
+                                                    onClick={() => {
+                                                        setSelectedBookForIssue(book.id)
+                                                        setIsIssueDialogOpen(true)
+                                                    }}
+                                                >
+                                                    Issue
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                            {booksQuery.isLoading ? (
+                                Array.from({ length: 6 }).map((_, i) => (
+                                    <Card key={i} className="flex h-[400px] flex-col justify-between">
+                                        <CardContent className="flex flex-col items-center justify-center p-4">
+                                            <Skeleton className="h-48 w-full" />
+                                            <Skeleton className="mt-2 h-4 w-full" />
+                                            <Skeleton className="mt-2 h-4 w-2/3" />
+                                        </CardContent>
+                                        <CardFooter className="p-4 pt-2">
+                                            <Skeleton className="h-9 w-full" />
+                                        </CardFooter>
+                                    </Card>
+                                ))
+                            ) : booksQuery.data?.books.length === 0 ? (
+                                <div className="col-span-full text-center text-muted-foreground">No books found.</div>
+                            ) : (
+                                booksQuery.data?.books.map((book) => (
+                                    <Card key={book.id} className="flex h-[400px] flex-col justify-between">
+                                        <CardContent className="flex flex-col justify-between p-4">
+                                            <div>
+                                                <div className="relative mb-2 aspect-[3/4] h-48">
+                                                    <Image
+                                                        src={`https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`}
+                                                        alt={book.title}
+                                                        layout="fill"
+                                                        objectFit="cover"
+                                                        className="rounded-md"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement
+                                                            target.src = `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(book.title)}`
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div
+                                                    className="line-clamp-2 h-12 text-sm font-semibold"
+                                                    title={book.title}
+                                                >
+                                                    {book.title}
+                                                </div>
+                                                <div className="mt-1 h-6 text-xs text-muted-foreground">
+                                                    {book.author}
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <Badge variant="secondary" className="text-xs">
+                                                    Qty: {book.quantity}
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(book.updatedAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        </CardContent>
+                                        <CardFooter className="p-4 pt-2">
                                             <Button
                                                 size="sm"
+                                                className="w-full"
                                                 disabled={book.quantity < 1}
                                                 onClick={() => {
                                                     setSelectedBookForIssue(book.id)
@@ -208,56 +301,10 @@ export default function BooksPage() {
                                             >
                                                 Issue
                                             </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                            {(books as unknown as Book[])?.map((book) => (
-                                <Card key={book.id} className="flex flex-col justify-between">
-                                    <CardContent className="pt-4">
-                                        <div className="relative mb-2 aspect-[3/4]">
-                                            <Image
-                                                src={`https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`}
-                                                alt={book.title}
-                                                layout="fill"
-                                                objectFit="cover"
-                                                className="rounded-md"
-                                                onError={(e) => {
-                                                    const target = e.target as HTMLImageElement
-                                                    target.src = `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(book.title)}`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="line-clamp-1 text-sm font-semibold" title={book.title}>
-                                            {book.title}
-                                        </div>
-                                        <div className="mt-1 text-xs text-muted-foreground">{book.author}</div>
-                                        <div className="mt-2 flex items-center justify-between">
-                                            <Badge variant="secondary" className="text-xs">
-                                                Qty: {book.quantity}
-                                            </Badge>
-                                            <span className="text-xs text-muted-foreground">
-                                                {new Date(book.updatedAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                    </CardContent>
-                                    {activeTab === 'import' && (
-                                        <CardFooter className="pt-2">
-                                            <Button
-                                                size="sm"
-                                                className="w-full"
-                                                onClick={() => handleImport(book as unknown as FrappeBook)}
-                                            >
-                                                <Book className="mr-2 h-3 w-3" />
-                                                Import
-                                            </Button>
                                         </CardFooter>
-                                    )}
-                                </Card>
-                            ))}
+                                    </Card>
+                                ))
+                            )}
                         </div>
                     )}
                 </TabsContent>
@@ -283,54 +330,90 @@ export default function BooksPage() {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                        {(books as FrappeBook[])?.map((book) => (
-                            <Card key={book.bookID} className="flex flex-col justify-between">
-                                <CardContent className="pt-4">
-                                    <div className="relative mb-2 aspect-[3/4]">
-                                        <Image
-                                            src={`https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`}
-                                            alt={book.title}
-                                            layout="fill"
-                                            objectFit="cover"
-                                            className="rounded-md"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement
-                                                target.src = `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(book.title)}`
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="line-clamp-1 text-sm font-semibold" title={book.title}>
-                                        {book.title}
-                                    </div>
-                                    <div className="mt-1 text-xs text-muted-foreground">{book.authors}</div>
-                                    <div className="mt-2 flex items-center justify-between">
-                                        <Badge variant="secondary" className="text-xs">
-                                            {book.isbn}
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">{book.publication_date}</span>
-                                    </div>
-                                </CardContent>
-                                <CardFooter className="pt-2">
-                                    <Button size="sm" className="w-full" onClick={() => handleImport(book)}>
-                                        <Book className="mr-2 h-3 w-3" />
-                                        Import
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        ))}
+                        {frappeQuery.isLoading ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <Card key={i} className="flex h-[400px] flex-col justify-between">
+                                    <CardContent className="flex flex-col items-center justify-center p-4">
+                                        <Skeleton className="h-48 w-full" />
+                                        <Skeleton className="mt-2 h-4 w-full" />
+                                        <Skeleton className="mt-2 h-4 w-2/3" />
+                                    </CardContent>
+                                    <CardFooter className="p-4 pt-2">
+                                        <Skeleton className="h-9 w-full" />
+                                    </CardFooter>
+                                </Card>
+                            ))
+                        ) : (books as FrappeBook[])?.length === 0 ? (
+                            <div className="col-span-full text-center text-muted-foreground">No books found.</div>
+                        ) : (
+                            (books as FrappeBook[])?.map((book) => (
+                                <Card key={book.bookID} className="flex h-[400px] flex-col justify-between">
+                                    <CardContent className="flex flex-col justify-between p-4">
+                                        <div>
+                                            <div className="relative mb-2 aspect-[3/4] h-48">
+                                                <Image
+                                                    src={`https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`}
+                                                    alt={book.title}
+                                                    layout="fill"
+                                                    objectFit="cover"
+                                                    className="rounded-md"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement
+                                                        target.src = `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(book.title)}`
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="line-clamp-2 h-12 text-sm font-semibold" title={book.title}>
+                                                {book.title}
+                                            </div>
+                                            <div className="mt-1 h-6 text-xs text-muted-foreground">{book.authors}</div>
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <Badge variant="secondary" className="text-xs">
+                                                {book.isbn}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                                {book.publication_date}
+                                            </span>
+                                        </div>
+                                    </CardContent>
+                                    <CardFooter className="p-4 pt-2">
+                                        <Button size="sm" className="w-full" onClick={() => handleImport(book)}>
+                                            <Book className="mr-2 h-3 w-3" />
+                                            Import
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            ))
+                        )}
                     </div>
-                    <div className="flex justify-center space-x-2">
-                        {Array.from({ length: totalPages }, (_, i) => (
-                            <Button
-                                key={i + 1}
-                                onClick={() => paginate(i + 1)}
-                                variant={currentPage === i + 1 ? 'default' : 'outline'}
-                                size="sm"
-                            >
-                                {i + 1}
-                            </Button>
-                        ))}
-                    </div>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => paginate(currentPage - 1)}
+                                    tabIndex={currentPage === 1 ? -1 : 0}
+                                />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationLink>{currentPage}</PaginationLink>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => {
+                                        if ((books as FrappeBook[]).length > 0) {
+                                            paginate(currentPage + 1)
+                                        } else if (currentPage > 1) {
+                                            paginate(currentPage - 1)
+                                        }
+                                    }}
+                                    tabIndex={
+                                        (books ?? ([] as FrappeBook[])).length === 0 && currentPage === 1 ? -1 : 0
+                                    }
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
                 </TabsContent>
             </Tabs>
 

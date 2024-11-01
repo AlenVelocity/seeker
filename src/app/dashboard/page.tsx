@@ -2,82 +2,88 @@
 
 import * as React from 'react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { Book, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Book, Users, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
-// Mock data
-const overviewData = {
-    totalBooks: 1250,
-    totalMembers: 500,
-    activeLoans: 75,
-    overdueBooksPercentage: 8
-}
-
-const recentTransactions = [
-    { id: 1, book: 'To Kill a Mockingbird', member: 'John Doe', type: 'Loan', date: '2023-07-01' },
-    { id: 2, book: '1984', member: 'Jane Smith', type: 'Return', date: '2023-06-30' },
-    { id: 3, book: 'Pride and Prejudice', member: 'Alice Johnson', type: 'Loan', date: '2023-06-29' },
-    { id: 4, book: 'The Great Gatsby', member: 'Bob Wilson', type: 'Loan', date: '2023-06-28' },
-    { id: 5, book: 'Brave New World', member: 'Emma Brown', type: 'Return', date: '2023-06-27' }
-]
-
-const monthlyData = [
-    { name: 'Jan', loans: 65, returns: 60 },
-    { name: 'Feb', loans: 59, returns: 55 },
-    { name: 'Mar', loans: 80, returns: 78 },
-    { name: 'Apr', loans: 81, returns: 75 },
-    { name: 'May', loans: 56, returns: 58 },
-    { name: 'Jun', loans: 55, returns: 52 },
-    { name: 'Jul', loans: 40, returns: 45 }
-]
+import { LoadingCells } from '@/components/ui/loading-cell'
+import { api } from '@/trpc/react'
 
 export default function OverviewPage() {
+    const overviewQuery = api.book.getOverview.useQuery()
+    const recentTransactionsQuery = api.transaction.getRecent.useQuery({ limit: 5 })
+    const monthlyDataQuery = api.transaction.getMonthlyData.useQuery()
+
     return (
         <div className="container mx-auto py-10">
             <h1 className="mb-8 text-3xl font-bold">Library Overview</h1>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Books</CardTitle>
-                        <Book className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{overviewData.totalBooks}</div>
-                        <p className="text-xs text-muted-foreground">+20 from last month</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{overviewData.totalMembers}</div>
-                        <p className="text-xs text-muted-foreground">+15 from last month</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
-                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{overviewData.activeLoans}</div>
-                        <p className="text-xs text-muted-foreground">+7% from last week</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Overdue Books</CardTitle>
-                        <ArrowDownRight className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{overviewData.overdueBooksPercentage}%</div>
-                        <p className="text-xs text-muted-foreground">-2% from last month</p>
-                    </CardContent>
-                </Card>
+                {overviewQuery.isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Loading...</CardTitle>
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">...</div>
+                                <p className="text-xs text-muted-foreground">Loading data</p>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : (
+                    <>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Books</CardTitle>
+                                <Book className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{overviewQuery.data?.totalBooks}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    +{overviewQuery.data?.newBooks} from last month
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{overviewQuery.data?.totalMembers}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    +{overviewQuery.data?.newMembers} from last month
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
+                                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{overviewQuery.data?.activeLoans}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    +{overviewQuery.data?.loanIncrease}% from last week
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Overdue Books</CardTitle>
+                                <ArrowDownRight className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{overviewQuery.data?.overdueBooksPercentage}%</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {(overviewQuery.data?.overdueBooksPercentage ?? 0 > 0) ? '+' : '-'}
+                                    {Math.abs(overviewQuery.data?.overdueBooksPercentage ?? 0)}% from last month
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -87,7 +93,7 @@ export default function OverviewPage() {
                     </CardHeader>
                     <CardContent className="pl-2">
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart data={monthlyData}>
+                            <BarChart data={monthlyDataQuery.data}>
                                 <XAxis
                                     dataKey="name"
                                     stroke="#888888"
@@ -124,14 +130,26 @@ export default function OverviewPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {recentTransactions.map((transaction) => (
-                                    <TableRow key={transaction.id}>
-                                        <TableCell className="font-medium">{transaction.book}</TableCell>
-                                        <TableCell>{transaction.member}</TableCell>
-                                        <TableCell>{transaction.type}</TableCell>
-                                        <TableCell>{transaction.date}</TableCell>
+                                {recentTransactionsQuery.isLoading ? (
+                                    <TableRow>
+                                        <LoadingCells columns={4} />
                                     </TableRow>
-                                ))}
+                                ) : recentTransactionsQuery.data?.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            No recent transactions.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    recentTransactionsQuery.data?.map((transaction) => (
+                                        <TableRow key={transaction.id}>
+                                            <TableCell className="font-medium">{transaction.book.title}</TableCell>
+                                            <TableCell>{transaction.member.name}</TableCell>
+                                            <TableCell>{transaction.returnDate ? 'Return' : 'Loan'}</TableCell>
+                                            <TableCell>{transaction.issueDate.toLocaleDateString()}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </CardContent>

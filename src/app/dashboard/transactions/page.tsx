@@ -31,6 +31,8 @@ import { api } from '@/trpc/react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { IssueBookDialog } from '@/components/IssueBookDialog'
+import { Switch } from '@/components/ui/switch'
+import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
 
 export default function TransactionsPage() {
     const [isNewTransactionOpen, setIsNewTransactionOpen] = React.useState(false)
@@ -42,6 +44,9 @@ export default function TransactionsPage() {
     const [returnDate, setReturnDate] = React.useState<Date>()
     const [searchTerm, setSearchTerm] = React.useState('')
     const [currentPage, setCurrentPage] = React.useState(1)
+    const [perDayFee, setPerDayFee] = React.useState('2.00')
+    const [isDebtCleared, setIsDebtCleared] = React.useState(false)
+    const [calculatedFee, setCalculatedFee] = React.useState(0)
 
     const utils = api.useUtils()
 
@@ -87,6 +92,27 @@ export default function TransactionsPage() {
         }
     })
 
+    const calculateFee = React.useCallback(
+        (returnDate: Date | undefined) => {
+            if (!returnDate || !selectedTransaction) return 0
+
+            const transaction = transactionsQuery.data?.transactions.find((t) => t.id === selectedTransaction)
+            if (!transaction) return 0
+
+            const days = Math.ceil(
+                (returnDate.getTime() - new Date(transaction.issueDate).getTime()) / (1000 * 60 * 60 * 24)
+            )
+            const fee = days * parseFloat(perDayFee)
+            setCalculatedFee(fee)
+            return fee
+        },
+        [selectedTransaction, perDayFee, transactionsQuery.data?.transactions]
+    )
+
+    React.useEffect(() => {
+        calculateFee(returnDate)
+    }, [returnDate, calculateFee])
+
     const handleReturn = () => {
         if (!selectedTransaction || !returnDate) {
             toast.error('Please select a return date')
@@ -95,8 +121,18 @@ export default function TransactionsPage() {
 
         returnMutation.mutate({
             id: selectedTransaction,
-            returnDate
+            returnDate,
+            rentFee: calculatedFee,
+            addToDebt: !isDebtCleared
         })
+    }
+
+    const handlePerDayFeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value
+        if (/^\d*\.?\d{0,2}$/.test(value)) {
+            setPerDayFee(value)
+            calculateFee(returnDate)
+        }
     }
 
     return (
@@ -130,50 +166,64 @@ export default function TransactionsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {transactionsQuery.data?.transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                            <TableCell>{transaction.id}</TableCell>
-                            <TableCell>{transaction.book.title}</TableCell>
-                            <TableCell>{transaction.member.name}</TableCell>
-                            <TableCell>{format(new Date(transaction.issueDate), 'PPP')}</TableCell>
-                            <TableCell>
-                                {transaction.returnDate
-                                    ? format(new Date(transaction.returnDate), 'PPP')
-                                    : 'Not returned'}
-                            </TableCell>
-                            <TableCell>{transaction.rentFee ? `$${transaction.rentFee.toFixed(2)}` : '-'}</TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <span className="sr-only">Open menu</span>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        {!transaction.returnDate && (
-                                            <DropdownMenuItem
-                                                onClick={() => {
-                                                    setSelectedTransaction(transaction.id)
-                                                    setIsReturnDialogOpen(true)
-                                                }}
-                                            >
-                                                Return Book
-                                            </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            className="text-destructive"
-                                            onClick={() => deleteMutation.mutate(transaction.id)}
-                                        >
-                                            Delete transaction
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                    {transactionsQuery.isLoading ? (
+                        <TableRow>
+                            <LoadingCells columns={7} />
+                        </TableRow>
+                    ) : transactionsQuery.data?.transactions.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center">
+                                No transactions found.
                             </TableCell>
                         </TableRow>
-                    ))}
+                    ) : (
+                        transactionsQuery.data?.transactions.map((transaction) => (
+                            <TableRow key={transaction.id}>
+                                <TableCell>{transaction.id}</TableCell>
+                                <TableCell>{transaction.book.title}</TableCell>
+                                <TableCell>{transaction.member.name}</TableCell>
+                                <TableCell>{format(new Date(transaction.issueDate), 'PPP')}</TableCell>
+                                <TableCell>
+                                    {transaction.returnDate
+                                        ? format(new Date(transaction.returnDate), 'PPP')
+                                        : 'Not returned'}
+                                </TableCell>
+                                <TableCell>
+                                    {transaction.rentFee ? `₹${transaction.rentFee.toFixed(2)}` : '-'}
+                                </TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                <span className="sr-only">Open menu</span>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            {!transaction.returnDate && (
+                                                <DropdownMenuItem
+                                                    onClick={() => {
+                                                        setSelectedTransaction(transaction.id)
+                                                        setIsReturnDialogOpen(true)
+                                                    }}
+                                                >
+                                                    Return Book
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                className="text-destructive"
+                                                onClick={() => deleteMutation.mutate(transaction.id)}
+                                            >
+                                                Delete transaction
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
                 </TableBody>
             </Table>
 
@@ -181,15 +231,52 @@ export default function TransactionsPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Return Book</DialogTitle>
-                        <DialogDescription>Select the return date for this book.</DialogDescription>
+                        <DialogDescription>Select the return date and set fees for this book.</DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Calendar
-                            mode="single"
-                            selected={returnDate}
-                            onSelect={setReturnDate}
-                            className="rounded-md border"
-                        />
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Return Date</Label>
+                            <div className="col-span-3">
+                                <Calendar
+                                    mode="single"
+                                    selected={returnDate}
+                                    onSelect={setReturnDate}
+                                    className="rounded-md border"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="perDayFee" className="text-right">
+                                Per Day Fee (₹)
+                            </Label>
+                            <div className="col-span-3">
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">₹</span>
+                                    <Input
+                                        id="perDayFee"
+                                        type="text"
+                                        value={perDayFee}
+                                        onChange={handlePerDayFeeChange}
+                                        className="pl-7"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Total Fee</Label>
+                            <div className="col-span-3">
+                                <p className="text-2xl font-bold">₹{calculatedFee.toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="debtCleared" className="text-right">
+                                Debt Cleared
+                            </Label>
+                            <div className="col-span-3">
+                                <Switch id="debtCleared" checked={isDebtCleared} onCheckedChange={setIsDebtCleared} />
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button onClick={handleReturn} disabled={returnMutation.isPending}>

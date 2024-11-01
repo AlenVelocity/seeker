@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { TRPCError } from '@trpc/server'
 
-const DAILY_RENT_FEE = 2.0 // $2 per day
+const DAILY_RENT_FEE = 50.0 // ₹50 per day
 const LATE_FEE_MULTIPLIER = 1.5 // 50% more for late returns
 
 export const transactionRouter = createTRPCRouter({
@@ -127,7 +127,9 @@ export const transactionRouter = createTRPCRouter({
         .input(
             z.object({
                 id: z.number(),
-                returnDate: z.date()
+                returnDate: z.date(),
+                rentFee: z.number(),
+                addToDebt: z.boolean()
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -150,31 +152,30 @@ export const transactionRouter = createTRPCRouter({
                 })
             }
 
-            // Calculate rent fee
-            const daysRented = Math.ceil(
-                (input.returnDate.getTime() - transaction.issueDate.getTime()) / (1000 * 60 * 60 * 24)
-            )
-            const isLate = daysRented > 14 // 2 weeks rental period
-            const rentFee = daysRented * DAILY_RENT_FEE * (isLate ? LATE_FEE_MULTIPLIER : 1)
-
-            // Update transaction, book quantity, and member's outstanding fees
-            return ctx.db.$transaction([
+            // Perform the transaction update and book quantity update
+            const [updatedTransaction] = await ctx.db.$transaction([
                 ctx.db.transaction.update({
                     where: { id: input.id },
                     data: {
                         returnDate: input.returnDate,
-                        rentFee
+                        rentFee: input.rentFee
                     }
                 }),
                 ctx.db.book.update({
                     where: { id: transaction.bookId },
                     data: { quantity: { increment: 1 } }
-                }),
-                ctx.db.member.update({
-                    where: { id: transaction.memberId },
-                    data: { outstandingDebt: { increment: rentFee } }
                 })
             ])
+
+            // Update member's debt separately if needed
+            if (input.addToDebt) {
+                await ctx.db.member.update({
+                    where: { id: transaction.memberId },
+                    data: { outstandingDebt: { increment: input.rentFee } }
+                })
+            }
+
+            return updatedTransaction
         }),
 
     delete: protectedProcedure.input(z.number()).mutation(async ({ ctx, input }) => {
@@ -200,5 +201,67 @@ export const transactionRouter = createTRPCRouter({
         return ctx.db.transaction.delete({
             where: { id: input }
         })
+    }),
+
+    getRecent: protectedProcedure
+        .input(
+            z.object({
+                limit: z.number().default(5)
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            return ctx.db.transaction.findMany({
+                take: input.limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    book: true,
+                    member: true
+                }
+            })
+        }),
+
+    getMonthlyData: protectedProcedure.query(async ({ ctx }) => {
+        const startOfYear = new Date(new Date().getFullYear(), 0, 1)
+        const months = Array.from({ length: 12 }, (_, i) => {
+            const date = new Date(new Date().getFullYear(), i, 1)
+            return {
+                name: date.toLocaleString('default', { month: 'short' }),
+                start: new Date(date.getFullYear(), date.getMonth(), 1),
+                end: new Date(date.getFullYear(), date.getMonth() + 1, 0)
+            }
+        })
+
+        const monthlyData = await Promise.all(
+            months.map(async (month) => {
+                const [loans, returns] = await Promise.all([
+                    // Count new loans in this month
+                    ctx.db.transaction.count({
+                        where: {
+                            issueDate: {
+                                gte: month.start,
+                                lte: month.end
+                            }
+                        }
+                    }),
+                    // Count returns in this month
+                    ctx.db.transaction.count({
+                        where: {
+                            returnDate: {
+                                gte: month.start,
+                                lte: month.end
+                            }
+                        }
+                    })
+                ])
+
+                return {
+                    name: month.name,
+                    loans,
+                    returns
+                }
+            })
+        )
+
+        return monthlyData
     })
 })

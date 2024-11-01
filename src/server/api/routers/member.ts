@@ -203,5 +203,25 @@ export const memberRouter = createTRPCRouter({
                     outstandingDebt: { decrement: input.amount }
                 }
             })
+        }),
+
+    clearDebt: protectedProcedure.input(z.number()).mutation(async ({ ctx, input }) => {
+        const member = await ctx.db.member.findUnique({
+            where: { id: input }
         })
+
+        if (!member) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'Member not found'
+            })
+        }
+
+        return ctx.db.member.update({
+            where: { id: input },
+            data: {
+                outstandingDebt: 0
+            }
+        })
+    })
 })

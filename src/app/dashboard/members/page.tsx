@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { useDebounce } from '@/hooks/use-debounce'
+import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
 
 export default function MembersPage() {
     const [searchTerm, setSearchTerm] = React.useState('')
@@ -188,56 +189,68 @@ export default function MembersPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {membersQuery.data?.members.map((member) => (
-                        <TableRow key={member.id}>
-                            <TableCell className="font-medium">{member.name}</TableCell>
-                            <TableCell>{member.email}</TableCell>
-                            <TableCell>
-                                <Badge variant={member.transactions.length > 0 ? 'default' : 'secondary'}>
-                                    {member.transactions.length}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>
-                                {member.outstandingDebt > 0 ? (
-                                    <Badge variant="destructive">${member.outstandingDebt.toFixed(2)}</Badge>
-                                ) : (
-                                    <Badge variant="secondary">$0.00</Badge>
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <span className="sr-only">Open menu</span>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        {member.outstandingDebt > 0 && (
-                                            <DropdownMenuItem
-                                                onClick={() => {
-                                                    setSelectedMember(member.id)
-                                                    setIsPaymentOpen(true)
-                                                }}
-                                            >
-                                                <DollarSign className="mr-2 h-4 w-4" />
-                                                Pay Debt
-                                            </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            className="text-destructive"
-                                            onClick={() => deleteMutation.mutate(member.id)}
-                                            disabled={member.transactions.length > 0 || member.outstandingDebt > 0}
-                                        >
-                                            Delete member
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                    {membersQuery.isLoading ? (
+                        <TableRow>
+                            <LoadingCells columns={5} />
+                        </TableRow>
+                    ) : membersQuery.data?.members.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                No members found.
                             </TableCell>
                         </TableRow>
-                    ))}
+                    ) : (
+                        membersQuery.data?.members.map((member) => (
+                            <TableRow key={member.id}>
+                                <TableCell className="font-medium">{member.name}</TableCell>
+                                <TableCell>{member.email}</TableCell>
+                                <TableCell>
+                                    <Badge variant={member.transactions.length > 0 ? 'default' : 'secondary'}>
+                                        {member.transactions.length}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    {member.outstandingDebt > 0 ? (
+                                        <Badge variant="destructive">₹{member.outstandingDebt.toFixed(2)}</Badge>
+                                    ) : (
+                                        <Badge variant="secondary">₹0.00</Badge>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                <span className="sr-only">Open menu</span>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            {member.outstandingDebt > 0 && (
+                                                <DropdownMenuItem
+                                                    onClick={() => {
+                                                        setSelectedMember(member.id)
+                                                        setIsPaymentOpen(true)
+                                                    }}
+                                                >
+                                                    <DollarSign className="mr-2 h-4 w-4" />
+                                                    Pay Debt
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                className="text-destructive"
+                                                onClick={() => deleteMutation.mutate(member.id)}
+                                                disabled={member.transactions.length > 0 || member.outstandingDebt > 0}
+                                            >
+                                                Delete member
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
                 </TableBody>
             </Table>
 
@@ -254,15 +267,19 @@ export default function MembersPage() {
                             </Label>
                             <div className="col-span-3">
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">₹</span>
                                     <Input
                                         id="amount"
-                                        type="number"
+                                        type="text"
                                         value={paymentAmount}
-                                        onChange={(e) => setPaymentAmount(e.target.value)}
+                                        onChange={(e) => {
+                                            const value = e.target.value
+                                            if (/^\d*\.?\d{0,2}$/.test(value)) {
+                                                setPaymentAmount(value)
+                                            }
+                                        }}
                                         className="pl-7"
-                                        step="0.01"
-                                        min="0"
+                                        placeholder="0.00"
                                     />
                                 </div>
                             </div>

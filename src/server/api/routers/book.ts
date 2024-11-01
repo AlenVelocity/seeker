@@ -217,5 +217,91 @@ export const bookRouter = createTRPCRouter({
                 imported: results.filter(Boolean).length,
                 total: input.length
             }
-        })
+        }),
+
+    getOverview: protectedProcedure.query(async ({ ctx }) => {
+        const now = new Date()
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        const lastWeek = new Date(now.setDate(now.getDate() - 7))
+
+        const [
+            totalBooks,
+            totalMembers,
+            activeLoans,
+            overdueBooks,
+            newBooks,
+            newMembers,
+            lastWeekLoans,
+            previousWeekLoans
+        ] = await Promise.all([
+            // Total books (sum of quantities)
+            ctx.db.book.aggregate({
+                _sum: { quantity: true }
+            }),
+            // Total members
+            ctx.db.member.count(),
+            // Active loans
+            ctx.db.transaction.count({
+                where: { returnDate: null }
+            }),
+            // Overdue books
+            ctx.db.transaction.count({
+                where: {
+                    returnDate: null,
+                    issueDate: {
+                        lt: new Date(new Date().setDate(new Date().getDate() - 14)) // 14 days loan period
+                    }
+                }
+            }),
+            // New books this month
+            ctx.db.book.count({
+                where: {
+                    createdAt: {
+                        gte: lastMonth
+                    }
+                }
+            }),
+            // New members this month
+            ctx.db.member.count({
+                where: {
+                    createdAt: {
+                        gte: lastMonth
+                    }
+                }
+            }),
+            // Loans this week
+            ctx.db.transaction.count({
+                where: {
+                    issueDate: {
+                        gte: lastWeek
+                    }
+                }
+            }),
+            // Loans previous week
+            ctx.db.transaction.count({
+                where: {
+                    issueDate: {
+                        gte: new Date(lastWeek.setDate(lastWeek.getDate() - 7)),
+                        lt: lastWeek
+                    }
+                }
+            })
+        ])
+
+        const totalBooksCount = totalBooks._sum.quantity || 0
+        const overdueBooksPercentage = activeLoans ? Math.round((overdueBooks / activeLoans) * 100) : 0
+        const loanIncrease = previousWeekLoans
+            ? Math.round(((lastWeekLoans - previousWeekLoans) / previousWeekLoans) * 100)
+            : 0
+
+        return {
+            totalBooks: totalBooksCount,
+            totalMembers,
+            activeLoans,
+            overdueBooksPercentage,
+            newBooks,
+            newMembers,
+            loanIncrease
+        }
+    })
 })
