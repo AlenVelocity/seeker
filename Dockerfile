@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm i --force
 
 # Stage 2: Builder
 FROM node:20.11.0-slim AS builder
