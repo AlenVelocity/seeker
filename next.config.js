@@ -4,12 +4,12 @@
  */
 await import('./src/env.js')
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+/** @type {import("next").NextConfig} */
+const config = {
     images: {
         remotePatterns: [{ hostname: 'covers.openlibrary.org' }]
     },
     output: 'standalone'
 }
 
-module.exports = nextConfig
+export default config
