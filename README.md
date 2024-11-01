@@ -1,29 +1,46 @@
-# Create T3 App
+# Seeker - Library Management System
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+## Technologies Used
 
-## What's next? How do I make an app with this?
+-   [Next.js](https://nextjs.org) - React framework for building web applications
+-   [Clerk](https://clerk.com) - Authentication and user management
+-   [Prisma](https://prisma.io) - ORM for database management
+-   [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS framework
+-   [tRPC](https://trpc.io) - End-to-end typesafe APIs
+-   [Recharts](https://recharts.org) - Charting library for React
+-   [Shadcn](https://ui.shadcn.com) - UI components
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Features
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+-   Dashboard with analytics and charts
+-   Book management (list, add, import)
+-   Member management
+-   Transaction tracking
+-   Dark mode support
+-   Responsive design
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+## Getting Started
 
-## Learn More
+1. Clone the repository
+2. Install dependencies:
+    ```
+    npm install
+    ```
+3. Set up your environment variables (see `.env.example`)
+4. Initialize the database:
+    ```
+    npm run db:push
+    ```
+5. Run the development server:
+    ```
+    npm run dev
+    ```
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## Project Structure
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
-
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
-
-## How do I deploy this?
-
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+-   `src/app`: Next.js app router pages and layouts
+-   `src/components`: Reusable React components
+-   `src/styles`: Global styles and Tailwind CSS configuration
+-   `src/lib`: Utility functions and shared logic
+-   `src/server`: Server-side code, including tRPC routers
+-   `prisma`: Database schema and migrations
