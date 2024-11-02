@@ -3,12 +3,14 @@
 ## Technologies Used
 
 -   [Next.js](https://nextjs.org) - React framework for building web applications
--   [Clerk](https://clerk.com) - Authentication and user management
+-   [FastAPI](https://fastapi.tiangolo.com) - API for backend services
+-   [Clerk](https://clerk.com) - Authentication
 -   [Prisma](https://prisma.io) - ORM for database management
 -   [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS framework
 -   [tRPC](https://trpc.io) - End-to-end typesafe APIs
 -   [Recharts](https://recharts.org) - Charting library for React
 -   [Shadcn](https://ui.shadcn.com) - UI components
+-   [Frappe API](https://frappe.io/api) - API for fetching books
 
 ## Features
 

@@ -48,7 +48,7 @@ export default function SeekerHero() {
                                 Welcome to Seeker
                             </h1>
                             <p className="mx-auto max-w-[700px] text-gray-500 dark:text-gray-400 md:text-xl/relaxed lg:text-2xl/relaxed xl:text-3xl/relaxed">
-                                A Library Management System built with the T3 Stack.
+                                A Library Management System built with the T3 Stack and FastAPI
                             </p>
                         </motion.div>
                         <motion.div

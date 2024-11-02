@@ -47,19 +47,7 @@ async def get_overview():
         if active_loans > 0 else 0
     )
     
-    # Get overdue books
-    overdue_count = await prisma.transaction.count(
-        where={
-            "returnDate": None,
-            "dueDate": {"lt": now}
-        }
-    )
-    
-    overdue_percentage = (
-        (overdue_count / active_loans * 100)
-        if active_loans > 0 else 0
-    )
-    
+
     return {
         "totalBooks": total_books,
         "totalMembers": total_members,
@@ -67,7 +55,6 @@ async def get_overview():
         "newMembers": new_members,
         "activeLoans": active_loans,
         "loanIncrease": loan_increase,
-        "overdueBooksPercentage": overdue_percentage
     }
 
 @router.get("/search/frappe", response_model=List[FrappeBook])
