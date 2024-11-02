@@ -8,7 +8,7 @@ export default function Page() {
     const { theme } = useTheme()
 
     return (
-        <div className="mx-auto w-full max-w-[400px]">
+        <div className="mx-auto w-full max-w-[400px] flex flex-col items-center justify-center">
             <SignIn
                 appearance={{
                     baseTheme: theme === 'dark' ? dark : undefined,
@@ -28,7 +28,7 @@ export default function Page() {
                         formFieldInputShowPasswordButton: 'text-muted-foreground hover:text-foreground'
                     }
                 }}
-                redirectUrl="/"
+                forceRedirectUrl="/"
                 signUpUrl="/sign-up"
             />
 

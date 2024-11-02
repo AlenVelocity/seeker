@@ -9,7 +9,7 @@ export default function Page() {
     const { theme } = useTheme()
 
     return (
-        <div className="mx-auto w-full max-w-[400px]">
+        <div className="mx-auto flex w-full max-w-[400px] flex-col items-center justify-center">
             <SignUp
                 appearance={{
                     baseTheme: theme === 'dark' ? dark : undefined,

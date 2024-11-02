@@ -31,8 +31,13 @@ export default function SeekerHero() {
     }
 
     return (
-        <motion.div className="flex flex-col px-4" initial="hidden" animate="visible" variants={containerVariants}>
-            <section className="w-full py-12 md:py-24 lg:py-32">
+        <motion.div
+            className="flex max-h-[calc(100vh-20rem)] flex-col px-4"
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+        >
+            <section className="w-full py-12">
                 <div className="container">
                     <motion.div
                         className="flex flex-col items-center space-y-4 text-center"
