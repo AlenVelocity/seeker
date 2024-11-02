@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import book, member, transaction
+from routers.book import router as book_router
+from routers.member import router as member_router
+from routers.transaction import router as transaction_router
 from database import prisma
 
 app = FastAPI()
@@ -15,9 +17,9 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(book.router)
-app.include_router(member.router)
-app.include_router(transaction.router)
+app.include_router(book_router)
+app.include_router(member_router)
+app.include_router(transaction_router)
 
 @app.on_event("startup")
 async def startup():
