@@ -7,7 +7,7 @@ await import('./src/env.js')
 /** @type {import("next").NextConfig} */
 const config = {
     images: {
-        remotePatterns: [{ hostname: 'covers.openlibrary.org' }]
+        remotePatterns: [{ hostname: 'covers.openlibrary.org' }, { hostname: 'utfs.io' }]
     },
     output: 'standalone'
 }

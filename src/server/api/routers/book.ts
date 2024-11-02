@@ -58,7 +58,8 @@ export const bookRouter = createTRPCRouter({
                 author: z.string(),
                 isbn: z.string(),
                 quantity: z.number().min(0),
-                publisher: z.string().optional()
+                publisher: z.string().optional(),
+                imageUrl: z.string().optional()
             })
         )
         .mutation(async ({ input }): Promise<Book> => {
@@ -88,7 +89,8 @@ export const bookRouter = createTRPCRouter({
                 author: z.string().optional(),
                 isbn: z.string().optional(),
                 quantity: z.number().min(0).optional(),
-                publisher: z.string().optional()
+                publisher: z.string().optional(),
+                imageUrl: z.string().optional()
             })
         )
         .mutation(async ({ input }): Promise<Book> => {

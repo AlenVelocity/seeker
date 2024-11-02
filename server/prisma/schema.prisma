@@ -8,14 +8,15 @@ datasource db {
 }
 
 model Book {
-  id           Int           @id @default(autoincrement())
-  title        String
-  author       String
-  isbn         String        @unique
-  quantity     Int
-  publisher    String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id        Int           @id @default(autoincrement())
+  title     String
+  author    String
+  isbn      String        @unique
+  quantity  Int
+  publisher String?
+  imageUrl  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   transactions Transaction[]
 }
 
@@ -39,8 +40,6 @@ model Transaction {
   issueDate  DateTime  @default(now())
   returnDate DateTime?
   rentFee    Float?
-  rentFeePaid Boolean  @default(false)  // Track if the rent fee has been paid
-  dueDate    DateTime  // When the book should be returned
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }

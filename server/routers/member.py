@@ -16,7 +16,8 @@ async def get_members(
         where = {
             "OR": [
                 {"name": {"contains": search}},
-                {"email": {"contains": search}}
+                {"email": {"contains": search}},
+                {"phone": {"contains": search}}
             ]
         }
 
@@ -29,7 +30,7 @@ async def get_members(
         include={
             "transactions": {
                 "where": {
-                    "returnDate": None  # Only include active transactions
+                    "returnDate": None
                 }
             }
         }
@@ -54,13 +55,16 @@ async def get_member_by_id(member_id: int):
     return member
 
 @router.post("", response_model=Member)
-async def create_member(member: MemberCreate):  # Changed to use MemberCreate
+async def create_member(member: MemberCreate):
     try:
         created_member = await prisma.member.create(
             data={
                 "name": member.name,
                 "email": member.email,
+                "phone": member.phone,
                 "address": member.address,
+                "status": member.status,
+                "imageUrl": member.imageUrl,
                 "outstandingDebt": 0
             },
             include={"transactions": True}
@@ -70,14 +74,17 @@ async def create_member(member: MemberCreate):  # Changed to use MemberCreate
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{member_id}", response_model=Member)
-async def update_member(member_id: int, member: MemberCreate):  # Changed to use MemberCreate
+async def update_member(member_id: int, member: MemberCreate):
     try:
         updated_member = await prisma.member.update(
             where={"id": member_id},
             data={
                 "name": member.name,
                 "email": member.email,
-                "address": member.address
+                "phone": member.phone,
+                "address": member.address,
+                "status": member.status,
+                "imageUrl": member.imageUrl
             },
             include={"transactions": True}
         )
@@ -88,6 +95,24 @@ async def update_member(member_id: int, member: MemberCreate):  # Changed to use
 @router.delete("/{member_id}", response_model=Member)
 async def delete_member(member_id: int):
     try:
+        # Check if member has active loans
+        member = await prisma.member.find_unique(
+            where={"id": member_id},
+            include={
+                "transactions": {
+                    "where": {
+                        "returnDate": None
+                    }
+                }
+            }
+        )
+        
+        if member.transactions or member.outstandingDebt > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete member with active loans or outstanding debt"
+            )
+            
         deleted_member = await prisma.member.delete(
             where={"id": member_id},
             include={"transactions": True}

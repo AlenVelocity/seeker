@@ -122,7 +122,8 @@ async def create_book(book: BookCreate):
                 "author": book.author,
                 "isbn": book.isbn,
                 "quantity": book.quantity,
-                "publisher": book.publisher
+                "publisher": book.publisher,
+                "imageUrl": book.imageUrl
             }
         )
         return created_book
@@ -180,7 +181,8 @@ async def update_book(book_id: int, book: BookCreate):
                 "author": book.author,
                 "isbn": book.isbn,
                 "quantity": book.quantity,
-                "publisher": book.publisher
+                "publisher": book.publisher,
+                "imageUrl": book.imageUrl
             }
         )
         return updated_book

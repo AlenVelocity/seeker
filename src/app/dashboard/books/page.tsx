@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/pagination'
 import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BookDialog } from '@/components/BookDialog'
+import { ViewBookDialog } from '@/components/ViewBookDialog'
 
 type Book = {
     id: number
@@ -63,6 +65,10 @@ export default function BooksPage() {
     const debouncedSearch = useDebounce(searchTerm, 500)
     const [isIssueDialogOpen, setIsIssueDialogOpen] = React.useState(false)
     const [selectedBookForIssue, setSelectedBookForIssue] = React.useState<number | null>(null)
+    const [isBookDialogOpen, setIsBookDialogOpen] = React.useState(false)
+    const [selectedBookForEdit, setSelectedBookForEdit] = React.useState<Book | null>(null)
+    const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false)
+    const [selectedBookForView, setSelectedBookForView] = React.useState<Book | null>(null)
 
     const booksQuery = api.book.getAll.useQuery({
         search: debouncedSearch,
@@ -180,7 +186,7 @@ export default function BooksPage() {
                                 </ToggleGroupItem>
                             </ToggleGroup>
                         </div>
-                        <Button disabled>
+                        <Button onClick={() => setIsBookDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add New Book
                         </Button>
@@ -219,16 +225,38 @@ export default function BooksPage() {
                                             <TableCell>{book.publisher}</TableCell>
                                             <TableCell>{new Date(book.updatedAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
-                                                <Button
-                                                    size="sm"
-                                                    disabled={book.quantity < 1}
-                                                    onClick={() => {
-                                                        setSelectedBookForIssue(book.id)
-                                                        setIsIssueDialogOpen(true)
-                                                    }}
-                                                >
-                                                    Issue
-                                                </Button>
+                                                <div className="flex space-x-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                            setSelectedBookForView(book as unknown as Book)
+                                                            setIsViewDialogOpen(true)
+                                                        }}
+                                                    >
+                                                        View
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setSelectedBookForEdit(book as unknown as Book)
+                                                            setIsBookDialogOpen(true)
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={book.quantity < 1}
+                                                        onClick={() => {
+                                                            setSelectedBookForIssue(book.id)
+                                                            setIsIssueDialogOpen(true)
+                                                        }}
+                                                    >
+                                                        Issue
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -254,7 +282,14 @@ export default function BooksPage() {
                                 <div className="col-span-full text-center text-muted-foreground">No books found.</div>
                             ) : (
                                 booksQuery.data?.items.map((book) => (
-                                    <Card key={book.id} className="flex h-[400px] flex-col justify-between">
+                                    <Card
+                                        key={book.id}
+                                        className="flex h-[400px] cursor-pointer flex-col justify-between hover:border-primary"
+                                        onClick={() => {
+                                            setSelectedBookForView(book as unknown as Book)
+                                            setIsViewDialogOpen(true)
+                                        }}
+                                    >
                                         <CardContent className="flex flex-col justify-between p-4">
                                             <div>
                                                 <div className="relative mb-2 aspect-[3/4] h-48">
@@ -457,6 +492,24 @@ export default function BooksPage() {
                         ? booksQuery.data?.items.find((book) => book.id === selectedBookForIssue)
                         : undefined
                 }
+            />
+
+            <BookDialog
+                open={isBookDialogOpen}
+                onOpenChange={(open) => {
+                    setIsBookDialogOpen(open)
+                    if (!open) setSelectedBookForEdit(null)
+                }}
+                book={selectedBookForEdit!}
+            />
+
+            <ViewBookDialog
+                open={isViewDialogOpen}
+                onOpenChange={(open) => {
+                    setIsViewDialogOpen(open)
+                    if (!open) setSelectedBookForView(null)
+                }}
+                book={selectedBookForView as any}
             />
         </div>
     )

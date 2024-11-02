@@ -8,37 +8,38 @@ datasource db {
 }
 
 model Book {
-  id        Int           @id @default(autoincrement())
-  title     String
-  author    String
-  isbn      String        @unique
-  quantity  Int
-  publisher String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id           Int           @id @default(autoincrement())
+  title        String
+  author       String
+  isbn         String        @unique
+  quantity     Int
+  publisher    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  imageUrl     String?
   transactions Transaction[]
 }
 
 model Member {
   id              Int           @id @default(autoincrement())
   name            String
-  email           String        @unique
-  address         String?
   outstandingDebt Float         @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  address         String?
+  email           String        @unique
   transactions    Transaction[]
 }
 
 model Transaction {
   id         Int       @id @default(autoincrement())
-  book       Book      @relation(fields: [bookId], references: [id])
   bookId     Int
-  member     Member    @relation(fields: [memberId], references: [id])
   memberId   Int
   issueDate  DateTime  @default(now())
   returnDate DateTime?
   rentFee    Float?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  book       Book      @relation(fields: [bookId], references: [id])
+  member     Member    @relation(fields: [memberId], references: [id])
 }

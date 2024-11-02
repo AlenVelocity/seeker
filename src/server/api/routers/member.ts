@@ -56,7 +56,10 @@ export const memberRouter = createTRPCRouter({
             z.object({
                 name: z.string(),
                 email: z.string().email(),
-                address: z.string().optional()
+                phone: z.string().optional(),
+                address: z.string().optional(),
+                status: z.enum(['ACTIVE', 'SUSPENDED', 'EXPIRED']).default('ACTIVE'),
+                imageUrl: z.string().optional()
             })
         )
         .mutation(async ({ input }): Promise<Member> => {
@@ -85,7 +88,10 @@ export const memberRouter = createTRPCRouter({
                 id: z.number(),
                 name: z.string().optional(),
                 email: z.string().email().optional(),
-                address: z.string().optional()
+                phone: z.string().optional(),
+                address: z.string().optional(),
+                status: z.enum(['ACTIVE', 'SUSPENDED', 'EXPIRED']).optional(),
+                imageUrl: z.string().optional()
             })
         )
         .mutation(async ({ input }): Promise<Member> => {

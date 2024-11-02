@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Search, MoreHorizontal, DollarSign } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, DollarSign, UserPlus } from 'lucide-react'
 import { api } from '@/trpc/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,8 +12,7 @@ import {
     DialogDescription,
     DialogFooter,
     DialogHeader,
-    DialogTitle,
-    DialogTrigger
+    DialogTitle
 } from '@/components/ui/dialog'
 import {
     DropdownMenu,
@@ -28,19 +27,23 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { useDebounce } from '@/hooks/use-debounce'
 import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
+import { MemberDialog } from '@/components/MemberDialog'
+import { Member } from '@prisma/client'
 
 export default function MembersPage() {
     const [searchTerm, setSearchTerm] = React.useState('')
     const [currentPage, setCurrentPage] = React.useState(1)
-    const [isNewMemberOpen, setIsNewMemberOpen] = React.useState(false)
     const [isPaymentOpen, setIsPaymentOpen] = React.useState(false)
     const [selectedMember, setSelectedMember] = React.useState<number | null>(null)
     const [paymentAmount, setPaymentAmount] = React.useState('')
-    const [formData, setFormData] = React.useState({
-        name: '',
-        email: '',
-        address: ''
-    })
+    const [isMemberDialogOpen, setIsMemberDialogOpen] = React.useState(false)
+    const [selectedMemberForEdit, setSelectedMemberForEdit] = React.useState<{
+        id: number
+        name: string
+        email: string
+        address?: string
+        outstandingDebt: number
+    } | null>(null)
 
     const debouncedSearch = useDebounce(searchTerm, 500)
     const utils = api.useUtils()
@@ -53,18 +56,6 @@ export default function MembersPage() {
     })
 
     // Mutations
-    const createMutation = api.member.create.useMutation({
-        onSuccess: () => {
-            toast.success('Member created successfully')
-            setIsNewMemberOpen(false)
-            setFormData({ name: '', email: '', address: '' })
-            utils.member.getAll.invalidate()
-        },
-        onError: (error) => {
-            toast.error(error.message)
-        }
-    })
-
     const deleteMutation = api.member.delete.useMutation({
         onSuccess: () => {
             toast.success('Member deleted successfully')
@@ -87,15 +78,6 @@ export default function MembersPage() {
         }
     })
 
-    const handleCreate = () => {
-        if (!formData.name || !formData.email) {
-            toast.error('Please fill in all required fields')
-            return
-        }
-
-        createMutation.mutate(formData)
-    }
-
     const handlePayment = () => {
         if (!selectedMember || !paymentAmount) {
             toast.error('Please enter a payment amount')
@@ -116,74 +98,28 @@ export default function MembersPage() {
             </header>
 
             <div className="mb-4 flex items-center justify-between">
-                <Input
-                    placeholder="Search members..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
-                />
-                <Dialog open={isNewMemberOpen} onOpenChange={setIsNewMemberOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Member
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Create New Member</DialogTitle>
-                            <DialogDescription>Enter the details for the new member.</DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="name" className="text-right">
-                                    Name
-                                </Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="email" className="text-right">
-                                    Email
-                                </Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="address" className="text-right">
-                                    Address
-                                </Label>
-                                <Input
-                                    id="address"
-                                    value={formData.address}
-                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-                                {createMutation.isPending ? 'Creating...' : 'Create Member'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <div className="flex items-center gap-2">
+                    <Input
+                        placeholder="Search members..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-sm"
+                    />
+                    <Button variant="outline" size="icon">
+                        <Search className="h-4 w-4" />
+                    </Button>
+                </div>
+                <Button onClick={() => setIsMemberDialogOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    New Member
+                </Button>
             </div>
 
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
+                        <TableHead>Member</TableHead>
+                        <TableHead>Contact</TableHead>
                         <TableHead>Active Loans</TableHead>
                         <TableHead>Outstanding Debt</TableHead>
                         <TableHead>Actions</TableHead>
@@ -203,8 +139,22 @@ export default function MembersPage() {
                     ) : (
                         membersQuery.data?.items.map((member) => (
                             <TableRow key={member.id}>
-                                <TableCell className="font-medium">{member.name}</TableCell>
-                                <TableCell>{member.email}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <div>
+                                            <div className="font-medium">{member.name}</div>
+                                            <div className="text-sm text-muted-foreground">ID: {member.id}</div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="space-y-1">
+                                        <div className="text-sm">{member.email}</div>
+                                        {member.address && (
+                                            <div className="text-sm text-muted-foreground">{member.address}</div>
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant={member.transactions.length > 0 ? 'default' : 'secondary'}>
                                         {member.transactions.length}
@@ -227,6 +177,14 @@ export default function MembersPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    setSelectedMemberForEdit(member as any)
+                                                    setIsMemberDialogOpen(true)
+                                                }}
+                                            >
+                                                View details
+                                            </DropdownMenuItem>
                                             {member.outstandingDebt > 0 && (
                                                 <DropdownMenuItem
                                                     onClick={() => {
@@ -293,6 +251,15 @@ export default function MembersPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <MemberDialog
+                open={isMemberDialogOpen}
+                onOpenChange={(open) => {
+                    setIsMemberDialogOpen(open)
+                    if (!open) setSelectedMemberForEdit(null)
+                }}
+                member={selectedMemberForEdit as any}
+            />
         </div>
     )
 }
