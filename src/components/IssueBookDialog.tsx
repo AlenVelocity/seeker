@@ -17,12 +17,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/trpc/react'
 import { toast } from 'sonner'
-import { Book } from '@prisma/client'
+import { Book } from '@/types/prisma'
 
 interface IssueBookDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    preselectedBook?: Book
+    preselectedBook?: Book | null
 }
 
 export function IssueBookDialog({ open, onOpenChange, preselectedBook }: IssueBookDialogProps) {
@@ -82,7 +82,7 @@ export function IssueBookDialog({ open, onOpenChange, preselectedBook }: IssueBo
                                 <SelectValue placeholder="Select a member" />
                             </SelectTrigger>
                             <SelectContent>
-                                {membersQuery.data?.members.map((member) => (
+                                {membersQuery.data?.items.map((member) => (
                                     <SelectItem key={member.id} value={member.id.toString()}>
                                         {member.name} {member.outstandingDebt > 0 && '(Has fees)'}
                                     </SelectItem>

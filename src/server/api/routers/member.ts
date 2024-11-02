@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { TRPCError } from '@trpc/server'
+import type { Member, PaginatedResponse } from '@/types/prisma'
+import { logger } from '@/utils/logger' // Assuming you have a logger utility
+
+const API_URL = process.env.PYTHON_API_URL || 'http://localhost:8000'
 
 export const memberRouter = createTRPCRouter({
     getAll: protectedProcedure
@@ -11,63 +15,40 @@ export const memberRouter = createTRPCRouter({
                 limit: z.number().default(20)
             })
         )
-        .query(async ({ ctx, input }) => {
-            const skip = (input.page - 1) * input.limit
-            const where = input.search
-                ? {
-                      OR: [
-                          { name: { contains: input.search } },
-                          { email: { contains: input.search } },
-                          { phone: { contains: input.search } }
-                      ]
-                  }
-                : {}
+        .query(async ({ input }): Promise<PaginatedResponse<Member>> => {
+            logger.info('Fetching all members', { input })
+            const params = new URLSearchParams({
+                page: input.page.toString(),
+                limit: input.limit.toString()
+            })
+            if (input.search) params.append('search', input.search)
 
-            const [members, total] = await Promise.all([
-                ctx.db.member.findMany({
-                    where,
-                    skip,
-                    take: input.limit,
-                    orderBy: { createdAt: 'desc' },
-                    include: {
-                        _count: {
-                            select: { transactions: true }
-                        },
-                        transactions: {
-                            where: { returnDate: null },
-                            include: { book: true }
-                        }
-                    }
-                }),
-                ctx.db.member.count({ where })
-            ])
-
-            return {
-                members,
-                total,
-                pages: Math.ceil(total / input.limit)
+            const response = await fetch(`${API_URL}/api/members?${params}`)
+            if (!response.ok) {
+                logger.error('Failed to fetch members', { status: response.status })
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: 'Failed to fetch members'
+                })
             }
+            const data = await response.json()
+            logger.info('Successfully fetched members', { count: data.items.length })
+            return data
         }),
 
-    getById: protectedProcedure.input(z.number()).query(async ({ ctx, input }) => {
-        const member = await ctx.db.member.findUnique({
-            where: { id: input },
-            include: {
-                transactions: {
-                    include: { book: true },
-                    orderBy: { issueDate: 'desc' }
-                }
-            }
-        })
-
-        if (!member) {
+    getById: protectedProcedure.input(z.number()).query(async ({ input }): Promise<Member> => {
+        logger.info('Fetching member by ID', { id: input })
+        const response = await fetch(`${API_URL}/api/members/${input}`)
+        if (!response.ok) {
+            logger.error('Member not found', { id: input, status: response.status })
             throw new TRPCError({
                 code: 'NOT_FOUND',
                 message: 'Member not found'
             })
         }
-
-        return member
+        const data = await response.json()
+        logger.info('Successfully fetched member', { id: input })
+        return data
     }),
 
     create: protectedProcedure
@@ -78,25 +59,24 @@ export const memberRouter = createTRPCRouter({
                 address: z.string().optional()
             })
         )
-        .mutation(async ({ ctx, input }) => {
-            // Check if email is already registered
-            const existingMember = await ctx.db.member.findUnique({
-                where: { email: input.email }
+        .mutation(async ({ input }): Promise<Member> => {
+            logger.info('Creating new member', { input })
+            const response = await fetch(`${API_URL}/api/members`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input)
             })
-
-            if (existingMember) {
+            if (!response.ok) {
+                const error = await response.json()
+                logger.error('Failed to create member', { input, error })
                 throw new TRPCError({
                     code: 'BAD_REQUEST',
-                    message: 'Email already registered'
+                    message: error.detail || 'Failed to create member'
                 })
             }
-
-            return ctx.db.member.create({
-                data: {
-                    ...input,
-                    outstandingDebt: 0
-                }
-            })
+            const data = await response.json()
+            logger.info('Successfully created member', { id: data.id })
+            return data
         }),
 
     update: protectedProcedure
@@ -105,70 +85,46 @@ export const memberRouter = createTRPCRouter({
                 id: z.number(),
                 name: z.string().optional(),
                 email: z.string().email().optional(),
-                phone: z.string().optional(),
                 address: z.string().optional()
             })
         )
-        .mutation(async ({ ctx, input }) => {
+        .mutation(async ({ input }): Promise<Member> => {
+            logger.info('Updating member', { input })
             const { id, ...data } = input
-
-            if (data.email) {
-                const existingMember = await ctx.db.member.findFirst({
-                    where: {
-                        email: data.email,
-                        NOT: { id }
-                    }
-                })
-
-                if (existingMember) {
-                    throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: 'Email already registered'
-                    })
-                }
-            }
-
-            return ctx.db.member.update({
-                where: { id },
-                data
+            const response = await fetch(`${API_URL}/api/members/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
             })
+            if (!response.ok) {
+                const error = await response.json()
+                logger.error('Failed to update member', { input, error })
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: error.detail || 'Failed to update member'
+                })
+            }
+            const updatedMember = await response.json()
+            logger.info('Successfully updated member', { id })
+            return updatedMember
         }),
 
-    delete: protectedProcedure.input(z.number()).mutation(async ({ ctx, input }) => {
-        // Check if member has any active loans
-        const member = await ctx.db.member.findUnique({
-            where: { id: input },
-            include: {
-                transactions: {
-                    where: { returnDate: null }
-                }
-            }
+    delete: protectedProcedure.input(z.number()).mutation(async ({ input }): Promise<Member> => {
+        logger.info('Deleting member', { id: input })
+        const response = await fetch(`${API_URL}/api/members/${input}`, {
+            method: 'DELETE'
         })
-
-        if (!member) {
-            throw new TRPCError({
-                code: 'NOT_FOUND',
-                message: 'Member not found'
-            })
-        }
-
-        if (member.transactions.length > 0) {
+        if (!response.ok) {
+            const error = await response.json()
+            logger.error('Failed to delete member', { id: input, error })
             throw new TRPCError({
                 code: 'BAD_REQUEST',
-                message: 'Cannot delete member with active loans'
+                message: error.detail || 'Failed to delete member'
             })
         }
-
-        if (member.outstandingDebt > 0) {
-            throw new TRPCError({
-                code: 'BAD_REQUEST',
-                message: 'Cannot delete member with outstanding debt'
-            })
-        }
-
-        return ctx.db.member.delete({
-            where: { id: input }
-        })
+        const deletedMember = await response.json()
+        logger.info('Successfully deleted member', { id: input })
+        return deletedMember
     }),
 
     payDebt: protectedProcedure
@@ -178,50 +134,36 @@ export const memberRouter = createTRPCRouter({
                 amount: z.number().positive()
             })
         )
-        .mutation(async ({ ctx, input }) => {
-            const member = await ctx.db.member.findUnique({
-                where: { id: input.id }
+        .mutation(async ({ input }): Promise<Member> => {
+            const response = await fetch(`${API_URL}/api/members/${input.id}/pay-debt?amount=${input.amount}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             })
-
-            if (!member) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Member not found'
-                })
-            }
-
-            if (input.amount > member.outstandingDebt) {
+            if (!response.ok) {
+                const error = await response.json()
                 throw new TRPCError({
                     code: 'BAD_REQUEST',
-                    message: 'Payment amount exceeds outstanding debt'
+                    message: error.detail || 'Failed to process payment'
                 })
             }
-
-            return ctx.db.member.update({
-                where: { id: input.id },
-                data: {
-                    outstandingDebt: { decrement: input.amount }
-                }
-            })
+            return response.json()
         }),
 
-    clearDebt: protectedProcedure.input(z.number()).mutation(async ({ ctx, input }) => {
-        const member = await ctx.db.member.findUnique({
-            where: { id: input }
+    clearDebt: protectedProcedure.input(z.number()).mutation(async ({ input }) => {
+        logger.info('Clearing debt for member', { id: input })
+        const response = await fetch(`${API_URL}/api/members/${input}/clear-debt`, {
+            method: 'POST'
         })
-
-        if (!member) {
+        if (!response.ok) {
+            const error = await response.json()
+            logger.error('Failed to clear debt', { id: input, error })
             throw new TRPCError({
-                code: 'NOT_FOUND',
-                message: 'Member not found'
+                code: 'BAD_REQUEST',
+                message: error.detail || 'Failed to clear debt'
             })
         }
-
-        return ctx.db.member.update({
-            where: { id: input },
-            data: {
-                outstandingDebt: 0
-            }
-        })
+        const result = await response.json()
+        logger.info('Successfully cleared debt for member', { id: input })
+        return result
     })
 })

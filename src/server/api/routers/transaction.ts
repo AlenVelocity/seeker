@@ -1,49 +1,34 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { TRPCError } from '@trpc/server'
+import type { Transaction, PaginatedResponse } from '@/types/prisma'
 
-const DAILY_RENT_FEE = 50.0 // ₹50 per day
-const LATE_FEE_MULTIPLIER = 1.5 // 50% more for late returns
+const API_URL = process.env.PYTHON_API_URL || 'http://localhost:8000'
 
 export const transactionRouter = createTRPCRouter({
     getAll: protectedProcedure
         .input(
             z.object({
+                search: z.string().optional(),
                 page: z.number().default(1),
-                limit: z.number().default(20),
-                search: z.string().optional()
+                limit: z.number().default(20)
             })
         )
-        .query(async ({ ctx, input }) => {
-            const skip = (input.page - 1) * input.limit
-            const where = input.search
-                ? {
-                      OR: [
-                          { book: { title: { contains: input.search } } },
-                          { member: { name: { contains: input.search } } }
-                      ]
-                  }
-                : {}
+        .query(async ({ input }): Promise<PaginatedResponse<Transaction>> => {
+            const params = new URLSearchParams({
+                page: input.page.toString(),
+                limit: input.limit.toString()
+            })
+            if (input.search) params.append('search', input.search)
 
-            const [transactions, total] = await Promise.all([
-                ctx.db.transaction.findMany({
-                    where,
-                    skip,
-                    take: input.limit,
-                    orderBy: { issueDate: 'desc' },
-                    include: {
-                        book: true,
-                        member: true
-                    }
-                }),
-                ctx.db.transaction.count({ where })
-            ])
-
-            return {
-                transactions,
-                total,
-                pages: Math.ceil(total / input.limit)
+            const response = await fetch(`${API_URL}/api/transactions?${params}`)
+            if (!response.ok) {
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: 'Failed to fetch transactions'
+                })
             }
+            return response.json()
         }),
 
     create: protectedProcedure
@@ -54,73 +39,22 @@ export const transactionRouter = createTRPCRouter({
                 issueDate: z.date()
             })
         )
-        .mutation(async ({ ctx, input }) => {
-            // Check if book is available
-            const book = await ctx.db.book.findUnique({
-                where: { id: input.bookId }
+        .mutation(async ({ input }): Promise<Transaction> => {
+            console.log(input)
+            const response = await fetch(`${API_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input)
             })
-
-            if (!book) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Book not found'
-                })
-            }
-
-            if (book.quantity < 1) {
+            if (!response.ok) {
+                const error = await response.json()
+                console.log(error.detail)
                 throw new TRPCError({
                     code: 'BAD_REQUEST',
-                    message: 'Book is out of stock'
+                    message: error.detail || 'Failed to create transaction'
                 })
             }
-
-            // Check if member has any overdue books or owes money
-            const member = await ctx.db.member.findUnique({
-                where: { id: input.memberId },
-                include: {
-                    transactions: {
-                        where: {
-                            returnDate: null
-                        }
-                    }
-                }
-            })
-
-            if (!member) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Member not found'
-                })
-            }
-
-            if (member.outstandingDebt > 0) {
-                throw new TRPCError({
-                    code: 'BAD_REQUEST',
-                    message: 'Member has outstanding fees'
-                })
-            }
-
-            if (member.transactions.length >= 3) {
-                throw new TRPCError({
-                    code: 'BAD_REQUEST',
-                    message: 'Member has reached maximum number of borrowed books'
-                })
-            }
-
-            // Create transaction and update book quantity
-            return ctx.db.$transaction([
-                ctx.db.transaction.create({
-                    data: {
-                        bookId: input.bookId,
-                        memberId: input.memberId,
-                        issueDate: input.issueDate
-                    }
-                }),
-                ctx.db.book.update({
-                    where: { id: input.bookId },
-                    data: { quantity: { decrement: 1 } }
-                })
-            ])
+            return response.json()
         }),
 
     return: protectedProcedure
@@ -129,139 +63,89 @@ export const transactionRouter = createTRPCRouter({
                 id: z.number(),
                 returnDate: z.date(),
                 rentFee: z.number(),
-                addToDebt: z.boolean()
+                addToDebt: z.boolean().default(false)
             })
         )
-        .mutation(async ({ ctx, input }) => {
-            const transaction = await ctx.db.transaction.findUnique({
-                where: { id: input.id },
-                include: { book: true }
-            })
-
-            if (!transaction) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Transaction not found'
+        .mutation(async ({ input }): Promise<Transaction> => {
+            const response = await fetch(`${API_URL}/api/transactions/${input.id}/return`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    return_date: input.returnDate,
+                    add_to_debt: input.addToDebt,
+                    rent_fee: input.rentFee
                 })
-            }
-
-            if (transaction.returnDate) {
+            })
+            if (!response.ok) {
+                const error = await response.json()
+                console.log(error.detail)
                 throw new TRPCError({
                     code: 'BAD_REQUEST',
-                    message: 'Book already returned'
+                    message: error.detail || 'Failed to return book'
                 })
             }
-
-            // Perform the transaction update and book quantity update
-            const [updatedTransaction] = await ctx.db.$transaction([
-                ctx.db.transaction.update({
-                    where: { id: input.id },
-                    data: {
-                        returnDate: input.returnDate,
-                        rentFee: input.rentFee
-                    }
-                }),
-                ctx.db.book.update({
-                    where: { id: transaction.bookId },
-                    data: { quantity: { increment: 1 } }
-                })
-            ])
-
-            // Update member's debt separately if needed
-            if (input.addToDebt) {
-                await ctx.db.member.update({
-                    where: { id: transaction.memberId },
-                    data: { outstandingDebt: { increment: input.rentFee } }
-                })
-            }
-
-            return updatedTransaction
+            return response.json()
         }),
 
-    delete: protectedProcedure.input(z.number()).mutation(async ({ ctx, input }) => {
-        const transaction = await ctx.db.transaction.findUnique({
-            where: { id: input }
-        })
-
-        if (!transaction) {
-            throw new TRPCError({
-                code: 'NOT_FOUND',
-                message: 'Transaction not found'
-            })
-        }
-
-        if (!transaction.returnDate) {
-            // If book hasn't been returned, restore the quantity
-            await ctx.db.book.update({
-                where: { id: transaction.bookId },
-                data: { quantity: { increment: 1 } }
-            })
-        }
-
-        return ctx.db.transaction.delete({
-            where: { id: input }
-        })
-    }),
-
-    getRecent: protectedProcedure
+    payRentFee: protectedProcedure
         .input(
             z.object({
-                limit: z.number().default(5)
+                transactionId: z.number()
             })
         )
-        .query(async ({ ctx, input }) => {
-            return ctx.db.transaction.findMany({
-                take: input.limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    book: true,
-                    member: true
-                }
+        .mutation(async ({ input }): Promise<Transaction> => {
+            const response = await fetch(`${API_URL}/api/transactions/${input.transactionId}/pay-fee`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             })
+            if (!response.ok) {
+                const error = await response.json()
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: error.detail || 'Failed to pay rent fee'
+                })
+            }
+            return response.json()
         }),
 
-    getMonthlyData: protectedProcedure.query(async ({ ctx }) => {
-        const startOfYear = new Date(new Date().getFullYear(), 0, 1)
-        const months = Array.from({ length: 12 }, (_, i) => {
-            const date = new Date(new Date().getFullYear(), i, 1)
-            return {
-                name: date.toLocaleString('default', { month: 'short' }),
-                start: new Date(date.getFullYear(), date.getMonth(), 1),
-                end: new Date(date.getFullYear(), date.getMonth() + 1, 0)
-            }
-        })
-
-        const monthlyData = await Promise.all(
-            months.map(async (month) => {
-                const [loans, returns] = await Promise.all([
-                    // Count new loans in this month
-                    ctx.db.transaction.count({
-                        where: {
-                            issueDate: {
-                                gte: month.start,
-                                lte: month.end
-                            }
-                        }
-                    }),
-                    // Count returns in this month
-                    ctx.db.transaction.count({
-                        where: {
-                            returnDate: {
-                                gte: month.start,
-                                lte: month.end
-                            }
-                        }
-                    })
-                ])
-
-                return {
-                    name: month.name,
-                    loans,
-                    returns
-                }
+    getMonthlyData: protectedProcedure.query(async () => {
+        const response = await fetch(`${API_URL}/api/transactions/monthly-data`)
+        if (!response.ok) {
+            const error = await response.json()
+            console.log(error)
+            throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Failed to fetch monthly data'
             })
-        )
+        }
+        const data = await response.json()
+        console.log(data)
+        return data
+    }),
 
-        return monthlyData
+    getRecent: protectedProcedure.input(z.object({ limit: z.number().default(5) })).query(async ({ input }) => {
+        const response = await fetch(`${API_URL}/api/transactions/recent?limit=${input.limit}`)
+        if (!response.ok) {
+            throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Failed to fetch recent transactions'
+            })
+        }
+        const data = await response.json()
+        console.log(data)
+        return data
+    }),
+
+    delete: protectedProcedure.input(z.number()).mutation(async ({ input }): Promise<Transaction> => {
+        const response = await fetch(`${API_URL}/api/transactions/${input}`, {
+            method: 'DELETE'
+        })
+        if (!response.ok) {
+            throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Failed to delete transaction'
+            })
+        }
+        return response.json()
     })
 })

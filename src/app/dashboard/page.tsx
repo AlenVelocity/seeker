@@ -7,12 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { LoadingCells } from '@/components/ui/loading-cell'
 import { api } from '@/trpc/react'
+import { Transaction } from '@/types/prisma'
+import type { MonthlyData } from '@/types/prisma'
 
 export default function OverviewPage() {
     const overviewQuery = api.book.getOverview.useQuery()
     const recentTransactionsQuery = api.transaction.getRecent.useQuery({ limit: 5 })
     const monthlyDataQuery = api.transaction.getMonthlyData.useQuery()
 
+    React.useEffect(() => {
+        console.log(monthlyDataQuery.data)
+    }, [monthlyDataQuery.data])
     return (
         <div className="container mx-auto py-10">
             <h1 className="mb-8 text-3xl font-bold">Library Overview</h1>
@@ -93,24 +98,34 @@ export default function OverviewPage() {
                     </CardHeader>
                     <CardContent className="pl-2">
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart data={monthlyDataQuery.data}>
-                                <XAxis
-                                    dataKey="name"
-                                    stroke="#888888"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis
-                                    stroke="#888888"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `${value}`}
-                                />
-                                <Bar dataKey="loans" fill="#adfa1d" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="returns" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                            </BarChart>
+                            {monthlyDataQuery.isLoading ? (
+                                <div className="flex h-full items-center justify-center">
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : monthlyDataQuery.data ? (
+                                <BarChart data={monthlyDataQuery.data}>
+                                    <XAxis
+                                        dataKey="name"
+                                        stroke="#888888"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis
+                                        stroke="#888888"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => `${value}`}
+                                    />
+                                    <Bar name="Loans" dataKey="loans" fill="#adfa1d" radius={[4, 4, 0, 0]} />
+                                    <Bar name="Returns" dataKey="returns" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            ) : (
+                                <div className="flex h-full items-center justify-center">
+                                    <p className="text-muted-foreground">No data available</p>
+                                </div>
+                            )}
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
@@ -141,12 +156,14 @@ export default function OverviewPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    recentTransactionsQuery.data?.map((transaction) => (
+                                    recentTransactionsQuery.data.map((transaction: Transaction) => (
                                         <TableRow key={transaction.id}>
                                             <TableCell className="font-medium">{transaction.book.title}</TableCell>
                                             <TableCell>{transaction.member.name}</TableCell>
                                             <TableCell>{transaction.returnDate ? 'Return' : 'Loan'}</TableCell>
-                                            <TableCell>{transaction.issueDate.toLocaleDateString()}</TableCell>
+                                            <TableCell>
+                                                {new Date(transaction.issueDate).toLocaleDateString()}
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 )}

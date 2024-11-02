@@ -80,9 +80,9 @@ export default function BooksPage() {
         }
     )
 
-    const books = activeTab === 'list' ? booksQuery.data?.books : frappeQuery.data || []
+    const books = activeTab === 'list' ? booksQuery.data?.items : frappeQuery.data || []
     const totalPages =
-        activeTab === 'list' ? booksQuery.data?.pages || 1 : Math.ceil((frappeQuery.data?.length || 0) / 20)
+        activeTab === 'list' ? booksQuery.data?.pages || 1 : Math.ceil((frappeQuery.data?.length || 0) / 12)
 
     const paginate = (pageNumber: number) => {
         setCurrentPage(pageNumber)
@@ -203,14 +203,14 @@ export default function BooksPage() {
                                     <TableRow>
                                         <LoadingCell />
                                     </TableRow>
-                                ) : booksQuery.data?.books.length === 0 ? (
+                                ) : booksQuery.data?.items.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-24 text-center">
                                             No books found.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    booksQuery.data?.books.map((book) => (
+                                    booksQuery.data?.items.map((book) => (
                                         <TableRow key={book.id}>
                                             <TableCell className="font-medium">{book.title}</TableCell>
                                             <TableCell>{book.author}</TableCell>
@@ -250,10 +250,10 @@ export default function BooksPage() {
                                         </CardFooter>
                                     </Card>
                                 ))
-                            ) : booksQuery.data?.books.length === 0 ? (
+                            ) : booksQuery.data?.items.length === 0 ? (
                                 <div className="col-span-full text-center text-muted-foreground">No books found.</div>
                             ) : (
-                                booksQuery.data?.books.map((book) => (
+                                booksQuery.data?.items.map((book) => (
                                     <Card key={book.id} className="flex h-[400px] flex-col justify-between">
                                         <CardContent className="flex flex-col justify-between p-4">
                                             <div>
@@ -454,7 +454,7 @@ export default function BooksPage() {
                 onOpenChange={setIsIssueDialogOpen}
                 preselectedBook={
                     selectedBookForIssue
-                        ? booksQuery.data?.books.find((book) => book.id === selectedBookForIssue)
+                        ? booksQuery.data?.items.find((book) => book.id === selectedBookForIssue)
                         : undefined
                 }
             />

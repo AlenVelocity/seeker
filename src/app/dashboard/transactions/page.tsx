@@ -52,8 +52,9 @@ export default function TransactionsPage() {
 
     // Queries
     const transactionsQuery = api.transaction.getAll.useQuery({
+        search: searchTerm,
         page: currentPage,
-        search: searchTerm
+        limit: 20
     })
 
     const booksQuery = api.book.getAll.useQuery({ limit: 100 })
@@ -96,7 +97,7 @@ export default function TransactionsPage() {
         (returnDate: Date | undefined) => {
             if (!returnDate || !selectedTransaction) return 0
 
-            const transaction = transactionsQuery.data?.transactions.find((t) => t.id === selectedTransaction)
+            const transaction = transactionsQuery.data?.items.find((t) => t.id === selectedTransaction)
             if (!transaction) return 0
 
             const days = Math.ceil(
@@ -106,7 +107,7 @@ export default function TransactionsPage() {
             setCalculatedFee(fee)
             return fee
         },
-        [selectedTransaction, perDayFee, transactionsQuery.data?.transactions]
+        [selectedTransaction, perDayFee, transactionsQuery.data?.items]
     )
 
     React.useEffect(() => {
@@ -170,14 +171,14 @@ export default function TransactionsPage() {
                         <TableRow>
                             <LoadingCells columns={7} />
                         </TableRow>
-                    ) : transactionsQuery.data?.transactions.length === 0 ? (
+                    ) : transactionsQuery.data?.items.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
                                 No transactions found.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        transactionsQuery.data?.transactions.map((transaction) => (
+                        transactionsQuery.data?.items.map((transaction) => (
                             <TableRow key={transaction.id}>
                                 <TableCell>{transaction.id}</TableCell>
                                 <TableCell>{transaction.book.title}</TableCell>

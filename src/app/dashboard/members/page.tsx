@@ -48,7 +48,8 @@ export default function MembersPage() {
     // Queries
     const membersQuery = api.member.getAll.useQuery({
         search: debouncedSearch,
-        page: currentPage
+        page: currentPage,
+        limit: 20
     })
 
     // Mutations
@@ -193,14 +194,14 @@ export default function MembersPage() {
                         <TableRow>
                             <LoadingCells columns={5} />
                         </TableRow>
-                    ) : membersQuery.data?.members.length === 0 ? (
+                    ) : membersQuery.data?.items.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
                                 No members found.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        membersQuery.data?.members.map((member) => (
+                        membersQuery.data?.items.map((member) => (
                             <TableRow key={member.id}>
                                 <TableCell className="font-medium">{member.name}</TableCell>
                                 <TableCell>{member.email}</TableCell>
