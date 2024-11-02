@@ -44,6 +44,5 @@ yarn-error.log*
 
 # idea files
 .idea
-server/routers/book.py
 
 *.log

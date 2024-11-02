@@ -50,6 +50,13 @@ export function IssueBookDialog({ open, onOpenChange, preselectedBook }: IssueBo
             return
         }
 
+        const selectedMemberData = membersQuery.data?.items.find((member) => member.id.toString() === selectedMember)
+
+        if (selectedMemberData?.outstandingDebt && selectedMemberData.outstandingDebt > 500) {
+            toast.error('Member has outstanding fees over ₹500. Cannot issue book.')
+            return
+        }
+
         createMutation.mutate({
             bookId: preselectedBook.id,
             memberId: parseInt(selectedMember),
@@ -83,8 +90,13 @@ export function IssueBookDialog({ open, onOpenChange, preselectedBook }: IssueBo
                             </SelectTrigger>
                             <SelectContent>
                                 {membersQuery.data?.items.map((member) => (
-                                    <SelectItem key={member.id} value={member.id.toString()}>
-                                        {member.name} {member.outstandingDebt > 0 && '(Has fees)'}
+                                    <SelectItem
+                                        key={member.id}
+                                        value={member.id.toString()}
+                                        disabled={member.outstandingDebt > 500}
+                                    >
+                                        {member.name}{' '}
+                                        {member.outstandingDebt > 0 && `(Fees: ₹${member.outstandingDebt})`}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
