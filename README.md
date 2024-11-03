@@ -107,11 +107,10 @@ Seeker is a full-stack library management system
 
     ```bash
     # Frontend (Next.js)
-    cd frontend
     npm install
 
     # Backend (FastAPI)
-    cd ../backend
+    cd /server
     pip install -r requirements.txt
     ```
 
@@ -136,10 +135,10 @@ Seeker is a full-stack library management system
 5. Run the development servers:
 
     ```bash
-    # Frontend (in frontend directory)
+    # Frontend (/)
     npm run dev
 
-    # Backend (in backend directory)
+    # Backend (/server)
     uvicorn main:app --reload
     ```
 
@@ -153,12 +152,13 @@ Seeker is a full-stack library management system
 
 ## Project Structure
 
--   `src/app`: Next.js app router pages and layouts
--   `src/components`: Reusable React components
--   `src/styles`: Global styles and Tailwind CSS configuration
--   `src/lib`: Utility functions and shared logic
--   `src/server`: Server-side code, including tRPC routers
--   `prisma`: Database schema and migrations
+-   `/server`: FastAPI backend
+-   `/src/app`: Next.js app router pages and layouts
+-   `/src/components`: Reusable React components
+-   `/src/styles`: Global styles and Tailwind CSS configuration
+-   `/src/lib`: Utility functions and shared logic
+-   `/src/server`: Server-side code, including tRPC routers
+-   `/prisma`: Database schema and migrations
 
 ## Technologies Used
 
