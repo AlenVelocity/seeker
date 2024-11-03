@@ -57,12 +57,14 @@ type FrappeBook = {
 export default function BooksPage() {
     const [activeTab, setActiveTab] = React.useState<'list' | 'import'>('list')
     const [searchTerm, setSearchTerm] = React.useState('')
+    const [authorSearchTerm, setAuthorSearchTerm] = React.useState('')
     const [currentPage, setCurrentPage] = React.useState(1)
     const [importDialogOpen, setImportDialogOpen] = React.useState(false)
     const [selectedBook, setSelectedBook] = React.useState<FrappeBook | null>(null)
     const [importQuantity, setImportQuantity] = React.useState(1)
     const [listViewMode, setListViewMode] = React.useState<'table' | 'grid'>('table')
     const debouncedSearch = useDebounce(searchTerm, 500)
+    const debouncedAuthorSearch = useDebounce(authorSearchTerm, 500)
     const [isIssueDialogOpen, setIsIssueDialogOpen] = React.useState(false)
     const [selectedBookForIssue, setSelectedBookForIssue] = React.useState<number | null>(null)
     const [isBookDialogOpen, setIsBookDialogOpen] = React.useState(false)
@@ -79,6 +81,7 @@ export default function BooksPage() {
     const frappeQuery = api.book.searchFromFrappe.useQuery(
         {
             title: debouncedSearch,
+            authors: debouncedAuthorSearch,
             page: currentPage
         },
         {
@@ -350,12 +353,19 @@ export default function BooksPage() {
                             <Button onClick={handleImportAll} disabled={importAllMutation.isPending}>
                                 <Plus className="mr-2 h-4 w-4" />
                                 Import All
-                            </Button>
+                            </Button>{' '}
                             <Input
                                 type="text"
-                                placeholder="Search books..."
+                                placeholder="Search by title..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                className="max-w-sm"
+                            />
+                            <Input
+                                type="text"
+                                placeholder="Search by author..."
+                                value={authorSearchTerm}
+                                onChange={(e) => setAuthorSearchTerm(e.target.value)}
                                 className="max-w-sm"
                             />
                             <Button type="submit">

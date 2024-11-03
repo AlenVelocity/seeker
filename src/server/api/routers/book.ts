@@ -41,6 +41,8 @@ export const bookRouter = createTRPCRouter({
             const response = await fetch(`${API_URL}/api/books?${params}`)
             if (!response.ok) {
                 logger.error('Failed to fetch books', { status: response.status })
+                const error = await response.json()
+                console.log(error)
                 throw new TRPCError({
                     code: 'INTERNAL_SERVER_ERROR',
                     message: 'Failed to fetch books'
