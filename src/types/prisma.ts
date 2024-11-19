@@ -20,13 +20,19 @@ export type Member = {
     transactions: Transaction[]
 }
 
+export type TransactionType = 'ISSUE' | 'RETURN'
+
 export type Transaction = {
     id: number
+    type: TransactionType
     bookId: number
     memberId: number
     issueDate: Date
     returnDate?: Date | null
     rentFee?: number | null
+    relatedTransactionId?: number | null
+    relatedTransaction?: Transaction | null
+    returnTransaction?: Transaction | null
     createdAt: Date
     updatedAt: Date
     book: Book

@@ -31,15 +31,24 @@ model Member {
   transactions    Transaction[]
 }
 
+enum TransactionType {
+  ISSUE
+  RETURN
+}
+
 model Transaction {
-  id         Int       @id @default(autoincrement())
-  book       Book      @relation(fields: [bookId], references: [id])
-  bookId     Int
-  member     Member    @relation(fields: [memberId], references: [id])
-  memberId   Int
-  issueDate  DateTime  @default(now())
-  returnDate DateTime?
-  rentFee    Float?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          Int           @id @default(autoincrement())
+  type        TransactionType @default(ISSUE)
+  book        Book          @relation(fields: [bookId], references: [id])
+  bookId      Int
+  member      Member        @relation(fields: [memberId], references: [id])
+  memberId    Int
+  issueDate   DateTime
+  returnDate  DateTime?
+  rentFee     Float?
+  relatedTransactionId Int? @unique
+  relatedTransaction Transaction? @relation("RelatedTransactions", fields: [relatedTransactionId], references: [id])
+  relatedTo Transaction? @relation("RelatedTransactions")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }

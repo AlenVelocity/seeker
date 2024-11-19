@@ -15,38 +15,21 @@ import {
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { api } from '@/trpc/react'
 import { toast } from 'sonner'
-import { Input } from '@/components/ui/input'
 import { IssueBookDialog } from '@/components/IssueBookDialog'
-import { Switch } from '@/components/ui/switch'
-import { LoadingCell, LoadingCells } from '@/components/ui/loading-cell'
+import { Badge } from '@/components/ui/badge'
+import { LoadingCell } from '@/components/ui/loading-cell'
+import { ReturnBookDialog } from '@/components/ReturnBookDialog'
+import { Transaction } from '@/types/prisma'
 
 export default function TransactionsPage() {
-    const [isNewTransactionOpen, setIsNewTransactionOpen] = React.useState(false)
+    const [isIssueDialogOpen, setIsIssueDialogOpen] = React.useState(false)
     const [isReturnDialogOpen, setIsReturnDialogOpen] = React.useState(false)
     const [selectedTransaction, setSelectedTransaction] = React.useState<number | null>(null)
-    const [selectedBook, setSelectedBook] = React.useState<string>('')
-    const [selectedMember, setSelectedMember] = React.useState<string>('')
-    const [issueDate, setIssueDate] = React.useState<Date>(new Date())
-    const [returnDate, setReturnDate] = React.useState<Date>()
     const [searchTerm, setSearchTerm] = React.useState('')
     const [currentPage, setCurrentPage] = React.useState(1)
-    const [perDayFee, setPerDayFee] = React.useState('2.00')
-    const [isDebtCleared, setIsDebtCleared] = React.useState(false)
-    const [calculatedFee, setCalculatedFee] = React.useState(0)
 
     const utils = api.useUtils()
 
@@ -57,32 +40,7 @@ export default function TransactionsPage() {
         limit: 20
     })
 
-    const booksQuery = api.book.getAll.useQuery({ limit: 100 })
-    const membersQuery = api.member.getAll.useQuery({ limit: 100 })
-
     // Mutations
-    const createMutation = api.transaction.create.useMutation({
-        onSuccess: () => {
-            toast.success('Transaction created successfully')
-            setIsNewTransactionOpen(false)
-            utils.transaction.getAll.invalidate()
-        },
-        onError: (error) => {
-            toast.error(error.message)
-        }
-    })
-
-    const returnMutation = api.transaction.return.useMutation({
-        onSuccess: () => {
-            toast.success('Book returned successfully')
-            setIsReturnDialogOpen(false)
-            utils.transaction.getAll.invalidate()
-        },
-        onError: (error) => {
-            toast.error(error.message)
-        }
-    })
-
     const deleteMutation = api.transaction.delete.useMutation({
         onSuccess: () => {
             toast.success('Transaction deleted successfully')
@@ -93,47 +51,19 @@ export default function TransactionsPage() {
         }
     })
 
-    const calculateFee = React.useCallback(
-        (returnDate: Date | undefined) => {
-            if (!returnDate || !selectedTransaction) return 0
-
-            const transaction = transactionsQuery.data?.items.find((t) => t.id === selectedTransaction)
-            if (!transaction) return 0
-
-            const days = Math.ceil(
-                (returnDate.getTime() - new Date(transaction.issueDate).getTime()) / (1000 * 60 * 60 * 24)
-            )
-            const fee = days * parseFloat(perDayFee)
-            setCalculatedFee(fee)
-            return fee
-        },
-        [selectedTransaction, perDayFee, transactionsQuery.data?.items]
-    )
-
-    React.useEffect(() => {
-        calculateFee(returnDate)
-    }, [returnDate, calculateFee])
-
-    const handleReturn = () => {
-        if (!selectedTransaction || !returnDate) {
-            toast.error('Please select a return date')
-            return
+    const getTransactionStatus = (transaction: Transaction) => {
+        if (transaction.type === 'RETURN') {
+            return <Badge variant="secondary">Return Transaction</Badge>
         }
-
-        returnMutation.mutate({
-            id: selectedTransaction,
-            returnDate,
-            rentFee: calculatedFee,
-            addToDebt: !isDebtCleared
-        })
+        return transaction.returnTransaction ? (
+            <Badge variant="secondary">Returned</Badge>
+        ) : (
+            <Badge variant="default">Active</Badge>
+        )
     }
 
-    const handlePerDayFeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value
-        if (/^\d*\.?\d{0,2}$/.test(value)) {
-            setPerDayFee(value)
-            calculateFee(returnDate)
-        }
+    const getTransactionType = (type: 'ISSUE' | 'RETURN') => {
+        return <Badge variant={type === 'ISSUE' ? 'default' : 'secondary'}>{type}</Badge>
     }
 
     return (
@@ -151,17 +81,21 @@ export default function TransactionsPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="max-w-sm"
                 />
-                <IssueBookDialog open={isNewTransactionOpen} onOpenChange={setIsNewTransactionOpen} />
+                <Button onClick={() => setIsIssueDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Issue Book
+                </Button>
             </div>
 
             <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>ID</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Book</TableHead>
                         <TableHead>Member</TableHead>
                         <TableHead>Issue Date</TableHead>
-                        <TableHead>Return Date</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Rent Fee</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
@@ -169,11 +103,11 @@ export default function TransactionsPage() {
                 <TableBody>
                     {transactionsQuery.isLoading ? (
                         <TableRow>
-                            <LoadingCells columns={7} />
+                            <LoadingCell colSpan={8} />
                         </TableRow>
                     ) : transactionsQuery.data?.items.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
+                            <TableCell colSpan={8} className="h-24 text-center">
                                 No transactions found.
                             </TableCell>
                         </TableRow>
@@ -181,14 +115,11 @@ export default function TransactionsPage() {
                         transactionsQuery.data?.items.map((transaction) => (
                             <TableRow key={transaction.id}>
                                 <TableCell>{transaction.id}</TableCell>
+                                <TableCell>{getTransactionType(transaction.type)}</TableCell>
                                 <TableCell>{transaction.book.title}</TableCell>
                                 <TableCell>{transaction.member.name}</TableCell>
                                 <TableCell>{format(new Date(transaction.issueDate), 'PPP')}</TableCell>
-                                <TableCell>
-                                    {transaction.returnDate
-                                        ? format(new Date(transaction.returnDate), 'PPP')
-                                        : 'Not returned'}
-                                </TableCell>
+                                <TableCell>{getTransactionStatus(transaction)}</TableCell>
                                 <TableCell>
                                     {transaction.rentFee ? `₹${transaction.rentFee.toFixed(2)}` : '-'}
                                 </TableCell>
@@ -202,7 +133,7 @@ export default function TransactionsPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            {!transaction.returnDate && (
+                                            {transaction.type === 'ISSUE' && !transaction.returnTransaction && (
                                                 <DropdownMenuItem
                                                     onClick={() => {
                                                         setSelectedTransaction(transaction.id)
@@ -228,64 +159,13 @@ export default function TransactionsPage() {
                 </TableBody>
             </Table>
 
-            <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Return Book</DialogTitle>
-                        <DialogDescription>Select the return date and set fees for this book.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Return Date</Label>
-                            <div className="col-span-3">
-                                <Calendar
-                                    mode="single"
-                                    selected={returnDate}
-                                    onSelect={setReturnDate}
-                                    className="rounded-md border"
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="perDayFee" className="text-right">
-                                Per Day Fee (₹)
-                            </Label>
-                            <div className="col-span-3">
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">₹</span>
-                                    <Input
-                                        id="perDayFee"
-                                        type="text"
-                                        value={perDayFee}
-                                        onChange={handlePerDayFeeChange}
-                                        className="pl-7"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Total Fee</Label>
-                            <div className="col-span-3">
-                                <p className="text-2xl font-bold">₹{calculatedFee.toFixed(2)}</p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="debtCleared" className="text-right">
-                                Debt Cleared
-                            </Label>
-                            <div className="col-span-3">
-                                <Switch id="debtCleared" checked={isDebtCleared} onCheckedChange={setIsDebtCleared} />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleReturn} disabled={returnMutation.isPending}>
-                            {returnMutation.isPending ? 'Processing...' : 'Confirm Return'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <IssueBookDialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen} />
+
+            <ReturnBookDialog
+                open={isReturnDialogOpen}
+                onOpenChange={setIsReturnDialogOpen}
+                transactionId={selectedTransaction}
+            />
         </div>
     )
 }
